@@ -51,4 +51,28 @@ public class UserController {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/{id}/horoscope/daily")
+    public ResponseEntity<String> getDailyHoroscope(@PathVariable Long id) {
+        UserProfile user = userService.getUser(id);
+        String sunSign = user.getSunSign().getName();
+        String horoscope = horoscopeService.getDailyHoroscope(sunSign);
+        return ResponseEntity.ok(horoscope);
+    }
+
+    @GetMapping("/{id}/horoscope/weekly")
+    public ResponseEntity<String> getWeeklyHoroscope(@PathVariable Long id) {
+        UserProfile user = userService.getUser(id);
+        String sunSign = user.getSunSign().getName();
+        String horoscope = horoscopeService.getWeeklyHoroscope(sunSign);
+        return ResponseEntity.ok(horoscope);
+    }
+
+    @GetMapping("/{id}/horoscope/monthly")
+    public ResponseEntity<String> getMonthlyHoroscope(@PathVariable Long id) {
+        UserProfile user = userService.getUser(id);
+        String sunSign = user.getSunSign().getName();
+        String horoscope = horoscopeService.getMonthlyHoroscope(sunSign);
+        return ResponseEntity.ok(horoscope);
+    }
 }
