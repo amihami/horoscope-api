@@ -11,7 +11,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 
-
 @Service
 public class HoroscopeService {
 
@@ -73,7 +72,7 @@ public class HoroscopeService {
 
             if (geoResponseObj instanceof List) {
                 List<Map<String, Object>> geoList = (List<Map<String, Object>>) geoResponseObj;
-                geo = geoList.get(0); 
+                geo = geoList.get(0);
             } else if (geoResponseObj instanceof Map) {
                 geo = (Map<String, Object>) geoResponseObj;
             } else {
@@ -87,6 +86,40 @@ public class HoroscopeService {
             double latitude = ((Number) geo.get("latitude")).doubleValue();
             double longitude = ((Number) geo.get("longitude")).doubleValue();
             double timezone = ((Number) geo.get("timezone_offset")).doubleValue();
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("year", dob.getYear());
+            payload.put("month", dob.getMonthValue());
+            payload.put("date", dob.getDayOfMonth());
+            payload.put("hours", tob.getHour());
+            payload.put("minutes", tob.getMinute());
+            payload.put("seconds", tob.getSecond());
+            payload.put("latitude", latitude);
+            payload.put("longitude", longitude);
+            payload.put("timezone", timezone);
+
+            Map<String, Object> config = new HashMap<>();
+            config.put("observation_point", "topocentric");
+            config.put("ayanamsha", "tropical");
+            config.put("language", "en");
+
+            payload.put("config", config);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+
+            String planetsUrl = baseUrl + "/western/planets";
+
+            // delay for same reason as above 
+            Thread.sleep(1000);
+
+            ResponseEntity<String> planetsResponse = restTemplate.postForEntity(planetsUrl, entity, String.class);
+
+            Map<String, Object> planetsBody = objectMapper.readValue(
+                    planetsResponse.getBody(),
+                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
+                    });
+
+            List<Map<String, Object>> output = (List<Map<String, Object>>) planetsBody.get("output");
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to calculate sun, moon, and rising signs", e);
