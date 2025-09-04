@@ -109,7 +109,7 @@ public class HoroscopeService {
 
             String planetsUrl = baseUrl + "/western/planets";
 
-            // delay for same reason as above 
+            // delay for same reason as above
             Thread.sleep(1000);
 
             ResponseEntity<String> planetsResponse = restTemplate.postForEntity(planetsUrl, entity, String.class);
@@ -120,6 +120,25 @@ public class HoroscopeService {
                     });
 
             List<Map<String, Object>> output = (List<Map<String, Object>>) planetsBody.get("output");
+
+            String sunSign = null;
+            String moonSign = null;
+            String risingSign = null;
+
+            for (Map<String, Object> planetEntry : output) {
+                Map<String, Object> planet = (Map<String, Object>) planetEntry.get("planet");
+                String planetName = (String) planet.get("en");
+
+                Map<String, Object> zodiacSign = (Map<String, Object>) planetEntry.get("zodiac_sign");
+                Map<String, String> nameMap = (Map<String, String>) zodiacSign.get("name");
+                String signName = nameMap.get("en");
+
+                switch (planetName.toLowerCase()) {
+                    case "sun" -> sunSign = signName;
+                    case "moon" -> moonSign = signName;
+                    case "ascendant" -> risingSign = signName;
+                }
+            }
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to calculate sun, moon, and rising signs", e);
