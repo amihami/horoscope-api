@@ -23,24 +23,32 @@ public class UserController {
     // Create a new user
     @PostMapping
     public ResponseEntity<UserProfile> createUser(@RequestBody Map<String, String> payload) {
-        return null; 
+        String name = payload.get("name");
+        LocalDate dob = LocalDate.parse(payload.get("dateOfBirth"));
+
+        LocalTime timeOfBirth = payload.containsKey("timeOfBirth") ? LocalTime.parse(payload.get("timeOfBirth")) : null;
+        String placeOfBirth = payload.getOrDefault("placeOfBirth", null);
+
+        UserProfile user = userService.createUser(name, dob, timeOfBirth, placeOfBirth);
+        return ResponseEntity.created(URI.create("/api/users/" + user.getId())).body(user);
     }
 
     // Get one user by ID
     @GetMapping("/{id}")
     public UserProfile getUser(@PathVariable Long id) {
-        return null;
+        return userService.getUser(id);
     }
 
     // Get all users
     @GetMapping
     public List<UserProfile> getAllUsers() {
-        return null;
+        return userService.getAllUsers();
     }
 
     // Delete a user by ID
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-        return null;
+        userService.deleteUser(id);
+        return ResponseEntity.noContent().build();
     }
 }
