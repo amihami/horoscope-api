@@ -38,14 +38,19 @@ public class UserService {
     }
 
     public UserProfile getUser(Long id) {
-        return null;
+        return userRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with id " + id));
     }
 
     public List<UserProfile> getAllUsers() {
-        return null;
+        return userRepo.findAll();
     }
 
     @Transactional
     public void deleteUser(Long id) {
+        if (!userRepo.existsById(id)) {
+            throw new IllegalArgumentException("User not found with id " + id);
+        }
+        userRepo.deleteById(id);
     }
 }
