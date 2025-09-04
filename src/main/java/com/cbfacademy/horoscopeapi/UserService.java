@@ -23,7 +23,18 @@ public class UserService {
     @Transactional
     public UserProfile createUser(String name, LocalDate dob, LocalTime timeOfBirth, String placeOfBirth) {
 
-        return null;
+        String sunSignName = SunSignCalculator.byDate(dob);
+        ZodiacSign sunSign = signRepo.findByNameIgnoreCase(sunSignName)
+                .orElseThrow(() -> new IllegalStateException("Zodiac sign not found: " + sunSignName));
+
+        UserProfile user = new UserProfile();
+        user.setName(name);
+        user.setDateOfBirth(dob);
+        user.setTimeOfBirth(timeOfBirth);
+        user.setPlaceOfBirth(placeOfBirth);
+        user.setSunSign(sunSign);
+
+        return userRepo.save(user);
     }
 
     public UserProfile getUser(Long id) {
