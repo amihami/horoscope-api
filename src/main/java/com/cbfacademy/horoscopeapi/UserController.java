@@ -52,6 +52,7 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
+    // Daily, weekly, monthly readings
     @GetMapping("/{id}/horoscope/daily")
     public ResponseEntity<String> getDailyHoroscope(@PathVariable Long id) {
         UserProfile user = userService.getUser(id);
@@ -75,4 +76,12 @@ public class UserController {
         String horoscope = horoscopeService.getMonthlyHoroscope(sunSign);
         return ResponseEntity.ok(horoscope);
     }
+
+    @PostMapping("/{id}/calculate-signs")
+    public ResponseEntity<UserProfile> calculateSigns(@PathVariable Long id) {
+        UserProfile user = userService.getUser(id);
+        userService.updateSigns(user);
+        return ResponseEntity.ok(user);
+    }
+
 }
