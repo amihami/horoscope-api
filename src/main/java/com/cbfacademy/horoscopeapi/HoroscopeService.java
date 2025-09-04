@@ -22,18 +22,26 @@ public class HoroscopeService {
     }
 
     private String fetchPublicHoroscope(String sign, String period, String day) {
-        return null;
+        try {
+            String url = horoscopeApiUrl + "/" + period + "?sign=" + sign.toLowerCase();
+            if (day != null) {
+                url += "&day=" + day.toLowerCase();
+            }
+            return restTemplate.getForObject(url, String.class);
+        } catch (Exception e) {
+            throw new RuntimeException("Horoscope-App-API error: " + e.getMessage(), e);
+        }
     }
 
     public String getDailyHoroscope(String sunSign) {
-        return null;
+        return fetchPublicHoroscope(sunSign, "daily", "today");
     }
 
     public String getWeeklyHoroscope(String sunSign) {
-        return null;
+        return fetchPublicHoroscope(sunSign, "weekly", null);
     }
 
     public String getMonthlyHoroscope(String sunSign) {
-        return null;
+        return fetchPublicHoroscope(sunSign, "monthly", null);
     }
 }
