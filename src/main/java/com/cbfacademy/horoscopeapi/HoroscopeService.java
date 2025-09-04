@@ -140,6 +140,13 @@ public class HoroscopeService {
                 }
             }
 
+            Map<String, String> result = new HashMap<>();
+            result.put("sun", sunSign);
+            result.put("moon", moonSign);
+            result.put("rising", risingSign);
+
+            return result;
+
         } catch (Exception e) {
             throw new RuntimeException("Failed to calculate sun, moon, and rising signs", e);
         }
