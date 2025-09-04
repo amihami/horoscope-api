@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class UserService {
@@ -52,5 +53,34 @@ public class UserService {
             throw new IllegalArgumentException("User not found with id " + id);
         }
         userRepo.deleteById(id);
+    }
+
+    @Transactional
+    public void updateSigns(UserProfile user) {
+        if (user.getTimeOfBirth() == null || user.getPlaceOfBirth() == null) {
+            throw new IllegalArgumentException("Time and place of birth must be set to calculate signs.");
+        }
+
+        // Call HoroscopeService to get full signs (sun, moon, rising)
+        Map<String, String> signs = horoscopeService.getFullSigns(
+                user.getDateOfBirth(),
+                user.getTimeOfBirth(),
+                user.getPlaceOfBirth());
+
+        // Update sun sign from API response, preferred if available
+        String sunSignName = signs.get("sun");
+        if (sunSignName == null || sunSignName.isEmpty()) {
+            // fallback to calculation by date
+            sunSignName = SunSignCalculator.byDate(user.getDateOfBirth());
+        }
+        ZodiacSign sunSign = signRepo.findByNameIgnoreCase(sunSignName)
+                .orElseThrow(() -> new IllegalStateException("Sun sign not found in DB"));
+        user.setSunSign(sunSign);
+
+        // Update moon and rising signs from API
+        user.setMoonSign(signs.get("moon"));
+        user.setRisingSign(signs.get("rising"));
+
+        userRepo.save(user);
     }
 }
