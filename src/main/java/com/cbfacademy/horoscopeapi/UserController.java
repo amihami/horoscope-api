@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/users")
@@ -35,7 +36,7 @@ public class UserController {
 
     // Get one user by ID
     @GetMapping("/{id}")
-    public UserProfile getUser(@PathVariable Long id) {
+    public UserProfile getUser(@PathVariable UUID id) {
         return userService.getUser(id);
     }
 
@@ -47,14 +48,14 @@ public class UserController {
 
     // Delete a user by ID
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteUser(@PathVariable UUID id) {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
     }
 
     // Daily, weekly, monthly readings
     @GetMapping("/{id}/horoscope/daily")
-    public ResponseEntity<String> getDailyHoroscope(@PathVariable Long id) {
+    public ResponseEntity<String> getDailyHoroscope(@PathVariable UUID id) {
         UserProfile user = userService.getUser(id);
         String sunSign = user.getSunSign().getName();
         String horoscope = horoscopeService.getDailyHoroscope(sunSign);
@@ -62,7 +63,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}/horoscope/weekly")
-    public ResponseEntity<String> getWeeklyHoroscope(@PathVariable Long id) {
+    public ResponseEntity<String> getWeeklyHoroscope(@PathVariable UUID id) {
         UserProfile user = userService.getUser(id);
         String sunSign = user.getSunSign().getName();
         String horoscope = horoscopeService.getWeeklyHoroscope(sunSign);
@@ -70,7 +71,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}/horoscope/monthly")
-    public ResponseEntity<String> getMonthlyHoroscope(@PathVariable Long id) {
+    public ResponseEntity<String> getMonthlyHoroscope(@PathVariable UUID id) {
         UserProfile user = userService.getUser(id);
         String sunSign = user.getSunSign().getName();
         String horoscope = horoscopeService.getMonthlyHoroscope(sunSign);
@@ -78,7 +79,7 @@ public class UserController {
     }
 
     @PostMapping("/{id}/calculate-signs")
-    public ResponseEntity<UserProfile> calculateSigns(@PathVariable Long id) {
+    public ResponseEntity<UserProfile> calculateSigns(@PathVariable UUID id) {
         UserProfile user = userService.getUser(id);
         userService.updateSigns(user);
         return ResponseEntity.ok(user);
@@ -86,7 +87,7 @@ public class UserController {
 
     @PutMapping("/{id}")
     public ResponseEntity<UserProfile> updateUser(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @RequestBody Map<String, String> updates) {
         UserProfile updatedUser = userService.updateUser(id, updates);
         return ResponseEntity.ok(updatedUser);

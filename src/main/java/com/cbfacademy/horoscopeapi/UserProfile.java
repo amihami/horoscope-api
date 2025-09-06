@@ -3,13 +3,14 @@ package com.cbfacademy.horoscopeapi;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "user_profile")
 public class UserProfile {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue
+    private UUID id;
 
     @Column(nullable = false)
     private String name;
@@ -48,13 +49,14 @@ public class UserProfile {
     }
 
     // Getters and Setters
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 
     public String getName() {
         return name;
     }
+
     public void setName(String name) {
         this.name = name;
     }
@@ -62,6 +64,7 @@ public class UserProfile {
     public LocalDate getDateOfBirth() {
         return dateOfBirth;
     }
+
     public void setDateOfBirth(LocalDate dateOfBirth) {
         this.dateOfBirth = dateOfBirth;
     }
@@ -69,6 +72,7 @@ public class UserProfile {
     public LocalTime getTimeOfBirth() {
         return timeOfBirth;
     }
+
     public void setTimeOfBirth(LocalTime timeOfBirth) {
         this.timeOfBirth = timeOfBirth;
     }
@@ -76,6 +80,7 @@ public class UserProfile {
     public String getPlaceOfBirth() {
         return placeOfBirth;
     }
+
     public void setPlaceOfBirth(String placeOfBirth) {
         this.placeOfBirth = placeOfBirth;
     }
@@ -83,6 +88,7 @@ public class UserProfile {
     public Double getLatitude() {
         return latitude;
     }
+
     public void setLatitude(Double latitude) {
         this.latitude = latitude;
     }
@@ -90,6 +96,7 @@ public class UserProfile {
     public Double getLongitude() {
         return longitude;
     }
+
     public void setLongitude(Double longitude) {
         this.longitude = longitude;
     }
@@ -97,6 +104,7 @@ public class UserProfile {
     public String getTimezone() {
         return timezone;
     }
+
     public void setTimezone(String timezone) {
         this.timezone = timezone;
     }
@@ -104,6 +112,7 @@ public class UserProfile {
     public ZodiacSign getSunSign() {
         return sunSign;
     }
+
     public void setSunSign(ZodiacSign sunSign) {
         this.sunSign = sunSign;
     }
@@ -111,6 +120,7 @@ public class UserProfile {
     public String getRisingSign() {
         return risingSign;
     }
+
     public void setRisingSign(String risingSign) {
         this.risingSign = risingSign;
     }
@@ -118,6 +128,7 @@ public class UserProfile {
     public String getMoonSign() {
         return moonSign;
     }
+
     public void setMoonSign(String moonSign) {
         this.moonSign = moonSign;
     }
