@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class UserService {
@@ -38,7 +39,7 @@ public class UserService {
         return userRepo.save(user);
     }
 
-    public UserProfile getUser(Long id) {
+    public UserProfile getUser(UUID id) {
         return userRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with id " + id));
     }
@@ -48,7 +49,7 @@ public class UserService {
     }
 
     @Transactional
-    public void deleteUser(Long id) {
+    public void deleteUser(UUID id) {
         if (!userRepo.existsById(id)) {
             throw new IllegalArgumentException("User not found with id " + id);
         }
@@ -85,7 +86,7 @@ public class UserService {
     }
 
     @Transactional
-    public UserProfile updateUser(Long id, Map<String, String> updates) {
+    public UserProfile updateUser(UUID id, Map<String, String> updates) {
         // Get user from the database
         UserProfile user = getUser(id);
 
