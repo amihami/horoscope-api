@@ -83,4 +83,37 @@ public class UserService {
 
         userRepo.save(user);
     }
+
+    @Transactional
+    public UserProfile updateUser(Long id, Map<String, String> updates) {
+        // Get user from the database
+        UserProfile user = getUser(id);
+
+        // Update fields if present in the request map
+        if (updates.containsKey("name")) {
+            user.setName(updates.get("name"));
+        }
+
+        if (updates.containsKey("dateOfBirth")) {
+            user.setDateOfBirth(LocalDate.parse(updates.get("dateOfBirth")));
+        }
+
+        if (updates.containsKey("timeOfBirth")) {
+            user.setTimeOfBirth(LocalTime.parse(updates.get("timeOfBirth")));
+        }
+
+        if (updates.containsKey("placeOfBirth")) {
+            user.setPlaceOfBirth(updates.get("placeOfBirth"));
+        }
+
+        // If dateOfBirth or placeOfBirth changed, recalculate sugn sign
+        if (updates.containsKey("dateOfBirth") || updates.containsKey("placeOfBirth")) {
+            String sunSignName = SunSignCalculator.byDate(user.getDateOfBirth());
+            ZodiacSign sunSign = signRepo.findByNameIgnoreCase(sunSignName)
+                    .orElseThrow(() -> new IllegalStateException("Sun sign not found in DB"));
+            user.setSunSign(sunSign);
+        }
+        return user;
+    }
+
 }
