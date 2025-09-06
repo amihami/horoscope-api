@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -24,21 +25,35 @@ public class HoroscopeService {
         this.restTemplate = restTemplate;
     }
 
+    
     private String fetchPublicHoroscope(String sign, String period, String day) {
         try {
             String url = horoscopeApiUrl + "/" + period + "?sign=" + sign.toLowerCase();
             if (day != null) {
                 url += "&day=" + day.toLowerCase();
             }
-            return restTemplate.getForObject(url, String.class);
+
+            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+
+  
+            Map<String, Object> parsed = objectMapper.readValue(
+                    response.getBody(),
+                    new TypeReference<Map<String, Object>>() {
+                    });
+
+    
+            return objectMapper.writeValueAsString(parsed);
+
         } catch (Exception e) {
             throw new RuntimeException("Horoscope-App-API error: " + e.getMessage(), e);
         }
     }
 
+
     public String getDailyHoroscope(String sunSign) {
         return fetchPublicHoroscope(sunSign, "daily", "today");
     }
+
 
     public String getWeeklyHoroscope(String sunSign) {
         return fetchPublicHoroscope(sunSign, "weekly", null);
