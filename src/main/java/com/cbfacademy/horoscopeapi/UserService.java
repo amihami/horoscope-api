@@ -48,6 +48,20 @@ public class UserService {
         return userRepo.findAll();
     }
 
+    // --- INSERT START: simple sign filters ---
+    public List<UserProfile> findBySunSign(String sunSign) {
+        return userRepo.findBySunSign_NameIgnoreCase(sunSign);
+    }
+
+    public List<UserProfile> findByMoonSign(String moonSign) {
+        return userRepo.findByMoonSignIgnoreCase(moonSign);
+    }
+
+    public List<UserProfile> findByRisingSign(String risingSign) {
+        return userRepo.findByRisingSignIgnoreCase(risingSign);
+    }
+    // --- INSERT END ---
+
     @Transactional
     public void deleteUser(UUID id) {
         if (!userRepo.existsById(id)) {
