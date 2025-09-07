@@ -17,7 +17,7 @@ public class UserService {
     private final HoroscopeService horoscopeService;
 
     public UserService(UserProfileRepository userRepo, ZodiacSignRepository signRepo,
-                       HoroscopeService horoscopeService) {
+            HoroscopeService horoscopeService) {
         this.userRepo = userRepo;
         this.signRepo = signRepo;
         this.horoscopeService = horoscopeService;
@@ -62,7 +62,7 @@ public class UserService {
             throw new IllegalArgumentException("Time and place of birth must be set to calculate signs.");
         }
         if (user.getLatitude() == null || user.getLongitude() == null ||
-            user.getTimezone() == null || user.getTimezone().isBlank()) {
+                user.getTimezone() == null || user.getTimezone().isBlank()) {
             throw new IllegalArgumentException("Latitude, longitude, and timezone must be set to calculate signs.");
         }
 
@@ -75,11 +75,10 @@ public class UserService {
                 cityOrPlace,
                 user.getLatitude(),
                 user.getLongitude(),
-                user.getTimezone()
-        );
+                user.getTimezone());
 
-        String sunFull    = toFullSign(signs.get("sun"));
-        String moonFull   = toFullSign(signs.get("moon"));
+        String sunFull = toFullSign(signs.get("sun"));
+        String moonFull = toFullSign(signs.get("moon"));
         String risingFull = toFullSign(signs.get("rising"));
 
         if (sunFull == null || sunFull.isBlank()) {
@@ -131,8 +130,7 @@ public class UserService {
         }
 
         // If we now have all required fields, call RapidAPI to recalc ALL signs
-        boolean hasAll =
-                user.getTimeOfBirth() != null &&
+        boolean hasAll = user.getTimeOfBirth() != null &&
                 user.getPlaceOfBirth() != null && !user.getPlaceOfBirth().isBlank() &&
                 user.getLatitude() != null &&
                 user.getLongitude() != null &&
@@ -143,14 +141,13 @@ public class UserService {
                     user.getDateOfBirth(),
                     user.getTimeOfBirth(),
                     user.getName(),
-                    user.getPlaceOfBirth(),       // used as "city" in payload
+                    user.getPlaceOfBirth(), // used as "city" in payload
                     user.getLatitude(),
                     user.getLongitude(),
-                    user.getTimezone()
-            );
+                    user.getTimezone());
 
-            String sunFull    = toFullSign(signs.get("sun"));
-            String moonFull   = toFullSign(signs.get("moon"));
+            String sunFull = toFullSign(signs.get("sun"));
+            String moonFull = toFullSign(signs.get("moon"));
             String risingFull = toFullSign(signs.get("rising"));
 
             if (sunFull == null || sunFull.isBlank()) {
@@ -169,40 +166,67 @@ public class UserService {
 
     // Map abbreviations or full strings to full sign names
     private String toFullSign(String sign) {
-        if (sign == null) return null;
+        if (sign == null)
+            return null;
         String s = sign.trim();
-        if (s.isEmpty()) return null;
+        if (s.isEmpty())
+            return null;
 
         switch (s.toLowerCase()) {
-            case "aries": return "Aries";
-            case "taurus": return "Taurus";
-            case "gemini": return "Gemini";
-            case "cancer": return "Cancer";
-            case "leo": return "Leo";
-            case "virgo": return "Virgo";
-            case "libra": return "Libra";
-            case "scorpio": return "Scorpio";
-            case "sagittarius": return "Sagittarius";
-            case "capricorn": return "Capricorn";
-            case "aquarius": return "Aquarius";
-            case "pisces": return "Pisces";
+            case "aries":
+                return "Aries";
+            case "taurus":
+                return "Taurus";
+            case "gemini":
+                return "Gemini";
+            case "cancer":
+                return "Cancer";
+            case "leo":
+                return "Leo";
+            case "virgo":
+                return "Virgo";
+            case "libra":
+                return "Libra";
+            case "scorpio":
+                return "Scorpio";
+            case "sagittarius":
+                return "Sagittarius";
+            case "capricorn":
+                return "Capricorn";
+            case "aquarius":
+                return "Aquarius";
+            case "pisces":
+                return "Pisces";
         }
 
         String abbr = s.length() >= 3 ? s.substring(0, 3).toLowerCase() : s.toLowerCase();
         switch (abbr) {
-            case "ari": return "Aries";
-            case "tau": return "Taurus";
-            case "gem": return "Gemini";
-            case "can": return "Cancer";
-            case "leo": return "Leo";
-            case "vir": return "Virgo";
-            case "lib": return "Libra";
-            case "sco": return "Scorpio";
-            case "sag": return "Sagittarius";
-            case "cap": return "Capricorn";
-            case "aqu": return "Aquarius";
-            case "pis": return "Pisces";
-            default: return s;
+            case "ari":
+                return "Aries";
+            case "tau":
+                return "Taurus";
+            case "gem":
+                return "Gemini";
+            case "can":
+                return "Cancer";
+            case "leo":
+                return "Leo";
+            case "vir":
+                return "Virgo";
+            case "lib":
+                return "Libra";
+            case "sco":
+                return "Scorpio";
+            case "sag":
+                return "Sagittarius";
+            case "cap":
+                return "Capricorn";
+            case "aqu":
+                return "Aquarius";
+            case "pis":
+                return "Pisces";
+            default:
+                return s;
         }
     }
 }
