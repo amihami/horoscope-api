@@ -71,21 +71,17 @@ public class UserService {
         userRepo.deleteById(id);
     }
 
-    /**
-     * Updates moon and rising signs using the external service.
-     * Throws IllegalArgumentException with exact messages expected by tests
-     * when required inputs are missing.
-     */
+    
     @Transactional
     public void updateSigns(UserProfile user) {
-        // Guard 1: must have time and place
+        
         if (user.getTimeOfBirth() == null ||
             user.getPlaceOfBirth() == null ||
             user.getPlaceOfBirth().isBlank()) {
             throw new IllegalArgumentException("Time and place of birth must be set");
         }
 
-        // Guard 2: must have lat/lon/timezone
+        
         if (user.getLatitude() == null ||
             user.getLongitude() == null ||
             user.getTimezone() == null ||
@@ -93,7 +89,7 @@ public class UserService {
             throw new IllegalArgumentException("Latitude, longitude, and timezone must be set");
         }
 
-        // Call external service only when inputs are complete
+       
         Map<String, String> signs = horoscopeService.getFullSigns(
                 user.getDateOfBirth(),
                 user.getTimeOfBirth(),
@@ -109,7 +105,7 @@ public class UserService {
             String moonFull  = toFullSign(signs.get("moon"));
             String risingFull= toFullSign(signs.get("rising"));
 
-            // Fallback for sun if upstream didn't provide it
+          
             if (sunFull == null || sunFull.isBlank()) {
                 sunFull = SunSignCalculator.byDate(user.getDateOfBirth());
             }
