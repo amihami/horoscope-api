@@ -160,7 +160,7 @@ public class UserService {
             case "pisces": return "Pisces";
         }
 
-        // Common 3-letter codes from the API
+        // Common 3 letter codes from the API
         String abbr = s.length() >= 3 ? s.substring(0, 3).toLowerCase() : s.toLowerCase();
         switch (abbr) {
             case "ari": return "Aries";
