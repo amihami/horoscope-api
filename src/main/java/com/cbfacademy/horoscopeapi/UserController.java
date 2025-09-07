@@ -2,18 +2,22 @@ package com.cbfacademy.horoscopeapi;
 
 import com.cbfacademy.horoscopeapi.dto.CalculateSignsRequest;
 import com.cbfacademy.horoscopeapi.dto.CreateUserRequest;
+import com.cbfacademy.horoscopeapi.dto.HoroscopeView;
 import com.cbfacademy.horoscopeapi.dto.UpdateUserRequest;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -28,6 +32,8 @@ public class UserController {
 
     private final UserService userService;
     private final HoroscopeService horoscopeService;
+
+    private final ObjectMapper om = new ObjectMapper();
 
     public UserController(UserService userService, HoroscopeService horoscopeService) {
         this.userService = userService;
@@ -44,10 +50,9 @@ public class UserController {
             }
             """)))
     @ApiResponse(responseCode = "201", description = "User created", content = @Content(schema = @Schema(implementation = UserProfile.class)))
-    @ApiResponse(responseCode = "400", description = "Invalid input", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Invalid input", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<UserProfile> createUser(
-            @org.springframework.web.bind.annotation.RequestBody CreateUserRequest body) {
+    public ResponseEntity<UserProfile> createUser(@RequestBody CreateUserRequest body) {
 
         if (body == null || body.name == null || body.name.isBlank() || body.dateOfBirth == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "name and dateOfBirth are required.");
@@ -67,7 +72,7 @@ public class UserController {
 
     @Operation(summary = "Get user by id", tags = "1. User Management")
     @ApiResponse(responseCode = "200", description = "User found", content = @Content(schema = @Schema(implementation = UserProfile.class)))
-    @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     @GetMapping("/{id}")
     public UserProfile getUser(
             @Parameter(in = ParameterIn.PATH, description = "User id", required = true) @PathVariable UUID id) {
@@ -75,7 +80,7 @@ public class UserController {
     }
 
     @Operation(summary = "List users", tags = "1. User Management")
-    @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = UserProfile.class)))
+    @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = UserProfile.class))))
     @GetMapping
     public List<UserProfile> getAllUsers() {
         return userService.getAllUsers();
@@ -91,11 +96,11 @@ public class UserController {
             }
             """)))
     @ApiResponse(responseCode = "200", description = "Updated", content = @Content(schema = @Schema(implementation = UserProfile.class)))
-    @ApiResponse(responseCode = "400", description = "Invalid input", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Invalid input", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<UserProfile> updateUser(
             @Parameter(in = ParameterIn.PATH, description = "User id", required = true) @PathVariable UUID id,
-            @org.springframework.web.bind.annotation.RequestBody UpdateUserRequest updates) {
+            @RequestBody UpdateUserRequest updates) {
 
         Map<String, String> map = new HashMap<>();
         if (updates.name != null)
@@ -119,7 +124,7 @@ public class UserController {
 
     @Operation(summary = "Delete user", tags = "1. User Management")
     @ApiResponse(responseCode = "204", description = "Deleted")
-    @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteUser(
             @Parameter(in = ParameterIn.PATH, description = "User id", required = true) @PathVariable UUID id) {
@@ -127,38 +132,43 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Daily forecast (by user's sun sign)", tags = "2. Forecasting")
-    @ApiResponse(responseCode = "200", description = "OK", content = @Content(mediaType = "application/json", schema = @Schema(implementation = String.class)))
-    @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+
+    @Operation(summary = "Daily forecast (by user's sun sign)", description = "Returns a simplified object with sign, period (daily), day (today) and cleaned horoscope text.", tags = "2. Forecasting")
+    @ApiResponse(responseCode = "200", description = "Horoscope retrieved", content = @Content(mediaType = "application/json", schema = @Schema(implementation = HoroscopeView.class), examples = @ExampleObject(name = "DailyExample", value = "{\n  \"sign\": \"Aries\",\n  \"period\": \"daily\",\n  \"day\": \"today\",\n  \"text\": \"Momentum builds as you take initiative today...\"\n}")))
+    @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     @GetMapping(value = "/{id}/horoscope/daily", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<String> getDailyHoroscope(@PathVariable UUID id) {
+    public ResponseEntity<HoroscopeView> getDailyHoroscope(@PathVariable UUID id) {
         UserProfile user = userService.getUser(id);
         String sunSign = user.getSunSign().getName();
-        String horoscope = horoscopeService.getDailyHoroscope(sunSign);
-        return ResponseEntity.ok(horoscope);
+        String json = horoscopeService.getDailyHoroscope(sunSign);
+        HoroscopeView view = toHoroscopeView(json, "daily", "today");
+        return ResponseEntity.ok(view);
     }
 
-    @Operation(summary = "Weekly forecast (by user's sun sign)", tags = "2. Forecasting")
-    @ApiResponse(responseCode = "200", description = "OK", content = @Content(mediaType = "application/json", schema = @Schema(implementation = String.class)))
-    @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @Operation(summary = "Weekly forecast (by user's sun sign)", description = "Returns a simplified object with sign, period (weekly) and cleaned horoscope text.", tags = "2. Forecasting")
+    @ApiResponse(responseCode = "200", description = "Horoscope retrieved", content = @Content(mediaType = "application/json", schema = @Schema(implementation = HoroscopeView.class), examples = @ExampleObject(name = "WeeklyExample", value = "{\n  \"sign\": \"Aries\",\n  \"period\": \"weekly\",\n  \"day\": null,\n  \"text\": \"This week favors decisive moves and collaboration...\"\n}")))
+    @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     @GetMapping(value = "/{id}/horoscope/weekly", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<String> getWeeklyHoroscope(@PathVariable UUID id) {
+    public ResponseEntity<HoroscopeView> getWeeklyHoroscope(@PathVariable UUID id) {
         UserProfile user = userService.getUser(id);
         String sunSign = user.getSunSign().getName();
-        String horoscope = horoscopeService.getWeeklyHoroscope(sunSign);
-        return ResponseEntity.ok(horoscope);
+        String json = horoscopeService.getWeeklyHoroscope(sunSign);
+        HoroscopeView view = toHoroscopeView(json, "weekly", null);
+        return ResponseEntity.ok(view);
     }
 
-    @Operation(summary = "Monthly forecast (by user's sun sign)", tags = "2. Forecasting")
-    @ApiResponse(responseCode = "200", description = "OK", content = @Content(mediaType = "application/json", schema = @Schema(implementation = String.class)))
-    @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @Operation(summary = "Monthly forecast (by user's sun sign)", description = "Returns a simplified object with sign, period (monthly) and cleaned horoscope text.", tags = "2. Forecasting")
+    @ApiResponse(responseCode = "200", description = "Horoscope retrieved", content = @Content(mediaType = "application/json", schema = @Schema(implementation = HoroscopeView.class), examples = @ExampleObject(name = "MonthlyExample", value = "{\n  \"sign\": \"Aries\",\n  \"period\": \"monthly\",\n  \"day\": null,\n  \"text\": \"A fresh cycle brings new ambitions—pace yourself and plan...\"\n}")))
+    @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     @GetMapping(value = "/{id}/horoscope/monthly", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<String> getMonthlyHoroscope(@PathVariable UUID id) {
+    public ResponseEntity<HoroscopeView> getMonthlyHoroscope(@PathVariable UUID id) {
         UserProfile user = userService.getUser(id);
         String sunSign = user.getSunSign().getName();
-        String horoscope = horoscopeService.getMonthlyHoroscope(sunSign);
-        return ResponseEntity.ok(horoscope);
+        String json = horoscopeService.getMonthlyHoroscope(sunSign);
+        HoroscopeView view = toHoroscopeView(json, "monthly", null);
+        return ResponseEntity.ok(view);
     }
+
 
     @Operation(summary = "Calculate signs", description = "Calculates and stores sun, moon, rising. Strict subject payload.", tags = "3. Calculate Signs")
     @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true, content = @Content(mediaType = "application/json", schema = @Schema(implementation = CalculateSignsRequest.class), examples = @ExampleObject(name = "Strict subject", value = """
@@ -178,12 +188,12 @@ public class UserController {
             }
             """)))
     @ApiResponse(responseCode = "200", description = "User updated with signs", content = @Content(schema = @Schema(implementation = UserProfile.class)))
-    @ApiResponse(responseCode = "400", description = "Invalid or missing fields", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Invalid or missing fields", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+    @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     @PostMapping(value = "/{id}/calculate-signs", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<UserProfile> calculateSigns(
             @PathVariable UUID id,
-            @org.springframework.web.bind.annotation.RequestBody CalculateSignsRequest payload) {
+            @RequestBody CalculateSignsRequest payload) {
 
         if (payload == null || payload.subject == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -224,29 +234,43 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
-    @Operation(summary = "Find users by Sun sign", tags = "4. Find User By Sign")
-    @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = UserProfile.class)))
+
+    @Operation(summary = "Find users by Sun sign", description = "Case-insensitive exact match on stored Sun sign.", tags = "4. Find User By Sign")
+    @ApiResponse(responseCode = "200", description = "OK", content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = UserProfile.class)), examples = @ExampleObject(name = "SunSignExample", value = "[{\n  \"id\":\"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\":\"Shannon\",\n  \"dateOfBirth\":\"1990-01-01\",\n  \"timeOfBirth\": \"08:30\",\n  \"placeOfBirth\":\"London\",\n  \"latitude\":51.5072,\n  \"longitude\":-0.1276,\n  \"timezone\":\"Europe/London\",\n  \"sunSign\":{\"id\":1,\"name\":\"Aries\",\"element\":\"Fire\",\"modality\":\"Cardinal\",\"rulingPlanet\":\"Mars\",\"traits\":\"Bold, energetic\"},\n  \"risingSign\":\"Libra\",\n  \"moonSign\":\"Cancer\"\n}]")))
+    @ApiResponse(responseCode = "400", description = "Missing or invalid 'sign' parameter", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     @GetMapping("/by-sun")
     public List<UserProfile> findBySun(
-            @Parameter(description = "Sun sign name, e.g. 'Aries'", required = true, example = "Aries") @RequestParam("sign") String sign) {
+            @Parameter(in = ParameterIn.QUERY, description = "Sun sign name, e.g. 'Aries'", required = true, example = "Aries") @RequestParam("sign") String sign) {
+        if (sign == null || sign.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Query parameter 'sign' is required.");
+        }
         return userService.findBySunSign(sign);
     }
 
-    @Operation(summary = "Find users by Moon sign", tags = "4. Find User By Sign")
-    @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = UserProfile.class)))
+    @Operation(summary = "Find users by Moon sign", description = "Case-insensitive exact match on stored Moon sign.", tags = "4. Find User By Sign")
+    @ApiResponse(responseCode = "200", description = "OK", content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = UserProfile.class)), examples = @ExampleObject(name = "MoonSignExample", value = "[{\n  \"id\":\"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\":\"Shannon\",\n  \"dateOfBirth\":\"1990-01-01\",\n  \"moonSign\":\"Cancer\"\n}]")))
+    @ApiResponse(responseCode = "400", description = "Missing or invalid 'sign' parameter", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     @GetMapping("/by-moon")
     public List<UserProfile> findByMoon(
-            @Parameter(description = "Moon sign name, e.g. 'Cancer'", required = true, example = "Cancer") @RequestParam("sign") String sign) {
+            @Parameter(in = ParameterIn.QUERY, description = "Moon sign name, e.g. 'Cancer'", required = true, example = "Cancer") @RequestParam("sign") String sign) {
+        if (sign == null || sign.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Query parameter 'sign' is required.");
+        }
         return userService.findByMoonSign(sign);
     }
 
-    @Operation(summary = "Find users by Rising sign", tags = "4. Find User By Sign")
-    @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = UserProfile.class)))
+    @Operation(summary = "Find users by Rising sign", description = "Case-insensitive exact match on stored Rising sign.", tags = "4. Find User By Sign")
+    @ApiResponse(responseCode = "200", description = "OK", content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = UserProfile.class)), examples = @ExampleObject(name = "RisingSignExample", value = "[{\n  \"id\":\"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\":\"Shannon\",\n  \"dateOfBirth\":\"1990-01-01\",\n  \"risingSign\":\"Libra\"\n}]")))
+    @ApiResponse(responseCode = "400", description = "Missing or invalid 'sign' parameter", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     @GetMapping("/by-rising")
     public List<UserProfile> findByRising(
-            @Parameter(description = "Rising sign name, e.g. 'Libra'", required = true, example = "Libra") @RequestParam("sign") String sign) {
+            @Parameter(in = ParameterIn.QUERY, description = "Rising sign name, e.g. 'Libra'", required = true, example = "Libra") @RequestParam("sign") String sign) {
+        if (sign == null || sign.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Query parameter 'sign' is required.");
+        }
         return userService.findByRisingSign(sign);
     }
+
 
     private String[] requiredMissing(Map<String, ?> fields) {
         List<String> missing = new ArrayList<>();
@@ -255,5 +279,41 @@ public class UserController {
                 missing.add(k);
         });
         return missing.toArray(String[]::new);
+    }
+
+    private HoroscopeView toHoroscopeView(String upstreamJson, String period, String day) {
+        try {
+            Map<String, Object> root = om.readValue(upstreamJson, new TypeReference<Map<String, Object>>() {
+            });
+            Object dataObj = root.get("data");
+            String sign = null;
+            String text = null;
+
+            if (dataObj instanceof Map<?, ?> data) {
+                Object s = ((Map<String, Object>) data).get("sign");
+                if (s instanceof String) {
+                    sign = capitalizeFirst((String) s);
+                }
+                Object t = ((Map<String, Object>) data).get("horoscope_data");
+                if (t != null) {
+                    text = String.valueOf(t);
+                }
+            }
+
+            HoroscopeView v = new HoroscopeView();
+            v.setSign(sign != null ? sign : "Unknown");
+            v.setPeriod(period);
+            v.setDay(day);
+            v.setText(text != null ? text : "");
+            return v;
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to parse upstream horoscope.", e);
+        }
+    }
+
+    private String capitalizeFirst(String s) {
+        if (s == null || s.isBlank())
+            return s;
+        return s.substring(0, 1).toUpperCase() + s.substring(1).toLowerCase();
     }
 }
