@@ -38,7 +38,6 @@ public class UserProfile {
     @Column(name = "moon_sign")
     private String moonSign;
 
-    // Constructors
     public UserProfile() {
     }
 
@@ -48,7 +47,6 @@ public class UserProfile {
         this.sunSign = sunSign;
     }
 
-    // Getters and Setters
     public UUID getId() {
         return id;
     }

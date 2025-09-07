@@ -1,21 +1,31 @@
 package com.cbfacademy.horoscopeapi;
 
+import com.cbfacademy.horoscopeapi.dto.CalculateSignsRequest;
+import com.cbfacademy.horoscopeapi.dto.CreateUserRequest;
+import com.cbfacademy.horoscopeapi.dto.UpdateUserRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.format.DateTimeParseException;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping(value = "/api/users", produces = MediaType.APPLICATION_JSON_VALUE)
 public class UserController {
+
     private final UserService userService;
     private final HoroscopeService horoscopeService;
 
@@ -24,80 +34,103 @@ public class UserController {
         this.horoscopeService = horoscopeService;
     }
 
-    // Create a new user
-    @PostMapping
-    public ResponseEntity<UserProfile> createUser(@RequestBody Map<String, String> payload) {
-        if (payload == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is required.");
-        }
-
-        String name = payload.get("name");
-        String dobRaw = payload.get("dateOfBirth");
-        if (name == null || name.isBlank() || dobRaw == null || dobRaw.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "'name' and 'dateOfBirth' are required.");
-        }
-
-        final LocalDate dob;
-        try {
-            dob = LocalDate.parse(dobRaw); // expects ISO-8601, e.g. 2024-03-01
-        } catch (DateTimeParseException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Invalid 'dateOfBirth' format. Use ISO-8601, e.g. 2024-03-01.");
-        }
-
-        LocalTime timeOfBirth = null;
-        String tobRaw = payload.get("timeOfBirth");
-        if (tobRaw != null && !tobRaw.isBlank()) {
-            try {
-                timeOfBirth = LocalTime.parse(tobRaw); // e.g. 14:30
-            } catch (DateTimeParseException ex) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Invalid 'timeOfBirth' format. Use HH:mm, e.g. 14:30.");
+    @Operation(summary = "Create user", description = "Creates a new user. If time/place are absent, only the Sun sign is set (by DOB).", tags = "1. User Management")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true, content = @Content(mediaType = "application/json", schema = @Schema(implementation = CreateUserRequest.class), examples = @ExampleObject(name = "Basic", value = """
+            {
+              "name": "Shannon",
+              "dateOfBirth": "1990-01-01",
+              "timeOfBirth": "08:30",
+              "placeOfBirth": "London"
             }
+            """)))
+    @ApiResponse(responseCode = "201", description = "User created", content = @Content(schema = @Schema(implementation = UserProfile.class)))
+    @ApiResponse(responseCode = "400", description = "Invalid input", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<UserProfile> createUser(
+            @org.springframework.web.bind.annotation.RequestBody CreateUserRequest body) {
+
+        if (body == null || body.name == null || body.name.isBlank() || body.dateOfBirth == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "name and dateOfBirth are required.");
         }
 
-        String placeOfBirth = payload.getOrDefault("placeOfBirth", null);
+        LocalDate dob = LocalDate.parse(body.dateOfBirth);
+        LocalTime timeOfBirth = (body.timeOfBirth == null || body.timeOfBirth.isBlank())
+                ? null
+                : LocalTime.parse(body.timeOfBirth);
+        String placeOfBirth = (body.placeOfBirth == null || body.placeOfBirth.isBlank())
+                ? null
+                : body.placeOfBirth;
 
-        UserProfile user = userService.createUser(name, dob, timeOfBirth, placeOfBirth);
+        UserProfile user = userService.createUser(body.name, dob, timeOfBirth, placeOfBirth);
         return ResponseEntity.created(URI.create("/api/users/" + user.getId())).body(user);
     }
 
-    // Get one user by ID
+    @Operation(summary = "Get user by id", tags = "1. User Management")
+    @ApiResponse(responseCode = "200", description = "User found", content = @Content(schema = @Schema(implementation = UserProfile.class)))
+    @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @GetMapping("/{id}")
-    public UserProfile getUser(@PathVariable UUID id) {
+    public UserProfile getUser(
+            @Parameter(in = ParameterIn.PATH, description = "User id", required = true) @PathVariable UUID id) {
         return userService.getUser(id);
     }
 
-    // Get all users
+    @Operation(summary = "List users", tags = "1. User Management")
+    @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = UserProfile.class)))
     @GetMapping
     public List<UserProfile> getAllUsers() {
         return userService.getAllUsers();
     }
 
-    @GetMapping("/by-sun")
-    public List<UserProfile> findBySun(@RequestParam("sign") String sign) {
-        return userService.findBySunSign(sign);
+    @Operation(summary = "Update user", description = "Partial update. Only provided fields are applied.", tags = "1. User Management")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(mediaType = "application/json", schema = @Schema(implementation = UpdateUserRequest.class), examples = @ExampleObject(name = "Partial update", value = """
+            {
+              "placeOfBirth": "Manchester",
+              "latitude": "53.4808",
+              "longitude": "-2.2426",
+              "timezone": "Europe/London"
+            }
+            """)))
+    @ApiResponse(responseCode = "200", description = "Updated", content = @Content(schema = @Schema(implementation = UserProfile.class)))
+    @ApiResponse(responseCode = "400", description = "Invalid input", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<UserProfile> updateUser(
+            @Parameter(in = ParameterIn.PATH, description = "User id", required = true) @PathVariable UUID id,
+            @org.springframework.web.bind.annotation.RequestBody UpdateUserRequest updates) {
+
+        Map<String, String> map = new HashMap<>();
+        if (updates.name != null)
+            map.put("name", updates.name);
+        if (updates.dateOfBirth != null)
+            map.put("dateOfBirth", updates.dateOfBirth);
+        if (updates.timeOfBirth != null)
+            map.put("timeOfBirth", updates.timeOfBirth);
+        if (updates.placeOfBirth != null)
+            map.put("placeOfBirth", updates.placeOfBirth);
+        if (updates.latitude != null)
+            map.put("latitude", updates.latitude);
+        if (updates.longitude != null)
+            map.put("longitude", updates.longitude);
+        if (updates.timezone != null)
+            map.put("timezone", updates.timezone);
+
+        UserProfile updatedUser = userService.updateUser(id, map);
+        return ResponseEntity.ok(updatedUser);
     }
 
-    @GetMapping("/by-moon")
-    public List<UserProfile> findByMoon(@RequestParam("sign") String sign) {
-        return userService.findByMoonSign(sign);
-    }
-
-    @GetMapping("/by-rising")
-    public List<UserProfile> findByRising(@RequestParam("sign") String sign) {
-        return userService.findByRisingSign(sign);
-    }
-
-    // Delete a user by ID
+    @Operation(summary = "Delete user", tags = "1. User Management")
+    @ApiResponse(responseCode = "204", description = "Deleted")
+    @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(@PathVariable UUID id) {
+    public ResponseEntity<Void> deleteUser(
+            @Parameter(in = ParameterIn.PATH, description = "User id", required = true) @PathVariable UUID id) {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
     }
 
-    // Daily, weekly, monthly readings
-    @GetMapping("/{id}/horoscope/daily")
+    @Operation(summary = "Daily forecast (by user's sun sign)", tags = "2. Forecasting")
+    @ApiResponse(responseCode = "200", description = "OK", content = @Content(mediaType = "application/json", schema = @Schema(implementation = String.class)))
+    @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @GetMapping(value = "/{id}/horoscope/daily", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> getDailyHoroscope(@PathVariable UUID id) {
         UserProfile user = userService.getUser(id);
         String sunSign = user.getSunSign().getName();
@@ -105,7 +138,10 @@ public class UserController {
         return ResponseEntity.ok(horoscope);
     }
 
-    @GetMapping("/{id}/horoscope/weekly")
+    @Operation(summary = "Weekly forecast (by user's sun sign)", tags = "2. Forecasting")
+    @ApiResponse(responseCode = "200", description = "OK", content = @Content(mediaType = "application/json", schema = @Schema(implementation = String.class)))
+    @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @GetMapping(value = "/{id}/horoscope/weekly", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> getWeeklyHoroscope(@PathVariable UUID id) {
         UserProfile user = userService.getUser(id);
         String sunSign = user.getSunSign().getName();
@@ -113,7 +149,10 @@ public class UserController {
         return ResponseEntity.ok(horoscope);
     }
 
-    @GetMapping("/{id}/horoscope/monthly")
+    @Operation(summary = "Monthly forecast (by user's sun sign)", tags = "2. Forecasting")
+    @ApiResponse(responseCode = "200", description = "OK", content = @Content(mediaType = "application/json", schema = @Schema(implementation = String.class)))
+    @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @GetMapping(value = "/{id}/horoscope/monthly", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> getMonthlyHoroscope(@PathVariable UUID id) {
         UserProfile user = userService.getUser(id);
         String sunSign = user.getSunSign().getName();
@@ -121,99 +160,100 @@ public class UserController {
         return ResponseEntity.ok(horoscope);
     }
 
-    /**
-     * Calculate signs from a STRICT payload:
-     * {
-     * "subject": { year, month, day, hour, minute, city, name, latitude, longitude,
-     * timezone }
-     * }
-     * All fields are REQUIRED.
-     */
-    @PostMapping("/{id}/calculate-signs")
+    @Operation(summary = "Calculate signs", description = "Calculates and stores sun, moon, rising. Strict subject payload.", tags = "3. Calculate Signs")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true, content = @Content(mediaType = "application/json", schema = @Schema(implementation = CalculateSignsRequest.class), examples = @ExampleObject(name = "Strict subject", value = """
+            {
+              "subject": {
+                "year": 1990,
+                "month": 1,
+                "day": 1,
+                "hour": 8,
+                "minute": 30,
+                "city": "London",
+                "name": "Shannon",
+                "latitude": 51.5072,
+                "longitude": -0.1276,
+                "timezone": "Europe/London"
+              }
+            }
+            """)))
+    @ApiResponse(responseCode = "200", description = "User updated with signs", content = @Content(schema = @Schema(implementation = UserProfile.class)))
+    @ApiResponse(responseCode = "400", description = "Invalid or missing fields", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @PostMapping(value = "/{id}/calculate-signs", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<UserProfile> calculateSigns(
             @PathVariable UUID id,
-            @RequestBody Map<String, Object> payload) {
+            @org.springframework.web.bind.annotation.RequestBody CalculateSignsRequest payload) {
 
-        // 1) Validate top-level "subject" object
-        if (payload == null || !payload.containsKey("subject") || !(payload.get("subject") instanceof Map)) {
+        if (payload == null || payload.subject == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Request body must be an object with a 'subject' property containing all required fields.");
+                    "Request body must include 'subject' with all required fields.");
         }
-        Map<String, Object> subject = (Map<String, Object>) payload.get("subject");
+        var s = payload.subject;
 
-        // 2) Validate all required fields are present
-        String[] required = new String[] {
-                "year", "month", "day", "hour", "minute",
-                "city", "name", "latitude", "longitude", "timezone"
-        };
-        for (String key : required) {
-            if (!subject.containsKey(key) || subject.get(key) == null ||
-                    (subject.get(key) instanceof String && ((String) subject.get(key)).isBlank())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing required field subject." + key);
-            }
+        String[] missing = requiredMissing(
+                Map.of(
+                        "subject.year", s.year,
+                        "subject.month", s.month,
+                        "subject.day", s.day,
+                        "subject.hour", s.hour,
+                        "subject.minute", s.minute,
+                        "subject.city", s.city,
+                        "subject.name", s.name,
+                        "subject.latitude", s.latitude,
+                        "subject.longitude", s.longitude,
+                        "subject.timezone", s.timezone));
+        if (missing.length > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Missing required field(s): " + String.join(", ", missing));
         }
 
-        // 3) Extract & coerce types (accept number or numeric string)
-        int year = asInt(subject.get("year"), "subject.year");
-        int month = asInt(subject.get("month"), "subject.month");
-        int day = asInt(subject.get("day"), "subject.day");
-        int hour = asInt(subject.get("hour"), "subject.hour");
-        int minute = asInt(subject.get("minute"), "subject.minute");
+        LocalDate dob = LocalDate.of(s.year, s.month, s.day);
+        LocalTime tob = LocalTime.of(s.hour, s.minute);
 
-        String city = String.valueOf(subject.get("city"));
-        String name = String.valueOf(subject.get("name"));
-        double latitude = asDouble(subject.get("latitude"), "subject.latitude");
-        double longitude = asDouble(subject.get("longitude"), "subject.longitude");
-        String timezone = String.valueOf(subject.get("timezone"));
-
-        // 4) Build DOB/TOB
-        LocalDate dob = LocalDate.of(year, month, day);
-        LocalTime tob = LocalTime.of(hour, minute);
-
-        // 5) Load user and update stored fields to reflect the subject (keeps DB
-        // consistent)
         UserProfile user = userService.getUser(id);
-        user.setName(name); // optional, but keeps subject & user aligned
+        user.setName(s.name);
         user.setDateOfBirth(dob);
         user.setTimeOfBirth(tob);
-        user.setPlaceOfBirth(city); // use 'city' to populate placeOfBirth
-        user.setLatitude(latitude);
-        user.setLongitude(longitude);
-        user.setTimezone(timezone);
+        user.setPlaceOfBirth(s.city);
+        user.setLatitude(s.latitude);
+        user.setLongitude(s.longitude);
+        user.setTimezone(s.timezone);
 
-        // 6) Delegate to service to call RapidAPI and persist signs
         userService.updateSigns(user);
-
-        // 7) Return the updated user
         return ResponseEntity.ok(user);
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<UserProfile> updateUser(
-            @PathVariable UUID id,
-            @RequestBody Map<String, String> updates) {
-        UserProfile updatedUser = userService.updateUser(id, updates);
-        return ResponseEntity.ok(updatedUser);
+    @Operation(summary = "Find users by Sun sign", tags = "4. Find User By Sign")
+    @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = UserProfile.class)))
+    @GetMapping("/by-sun")
+    public List<UserProfile> findBySun(
+            @Parameter(description = "Sun sign name, e.g. 'Aries'", required = true, example = "Aries") @RequestParam("sign") String sign) {
+        return userService.findBySunSign(sign);
     }
 
-    // helpers
-    private int asInt(Object val, String fieldName) {
-        try {
-            if (val instanceof Number n)
-                return n.intValue();
-            return Integer.parseInt(String.valueOf(val));
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, fieldName + " must be an integer.");
-        }
+    @Operation(summary = "Find users by Moon sign", tags = "4. Find User By Sign")
+    @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = UserProfile.class)))
+    @GetMapping("/by-moon")
+    public List<UserProfile> findByMoon(
+            @Parameter(description = "Moon sign name, e.g. 'Cancer'", required = true, example = "Cancer") @RequestParam("sign") String sign) {
+        return userService.findByMoonSign(sign);
     }
 
-    private double asDouble(Object val, String fieldName) {
-        try {
-            if (val instanceof Number n)
-                return n.doubleValue();
-            return Double.parseDouble(String.valueOf(val));
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, fieldName + " must be a number.");
-        }
+    @Operation(summary = "Find users by Rising sign", tags = "4. Find User By Sign")
+    @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = UserProfile.class)))
+    @GetMapping("/by-rising")
+    public List<UserProfile> findByRising(
+            @Parameter(description = "Rising sign name, e.g. 'Libra'", required = true, example = "Libra") @RequestParam("sign") String sign) {
+        return userService.findByRisingSign(sign);
+    }
+
+    private String[] requiredMissing(Map<String, ?> fields) {
+        List<String> missing = new ArrayList<>();
+        fields.forEach((k, v) -> {
+            if (v == null || (v instanceof String s && s.isBlank()))
+                missing.add(k);
+        });
+        return missing.toArray(String[]::new);
     }
 }

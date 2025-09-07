@@ -51,7 +51,6 @@ public class UserService {
         return userRepo.findAll();
     }
 
-    // --- INSERT START: simple sign filters ---
     public List<UserProfile> findBySunSign(String sunSign) {
         return userRepo.findBySunSign_NameIgnoreCase(sunSign);
     }
@@ -63,7 +62,6 @@ public class UserService {
     public List<UserProfile> findByRisingSign(String risingSign) {
         return userRepo.findByRisingSignIgnoreCase(risingSign);
     }
-    // --- INSERT END ---
 
     @Transactional
     public void deleteUser(UUID id) {
@@ -91,7 +89,6 @@ public class UserService {
     public UserProfile updateUser(UUID id, Map<String, String> updates) {
         UserProfile user = getUser(id);
 
-        // Basic field updates (strings in request)
         if (updates.containsKey("name")) {
             user.setName(updates.get("name"));
         }
@@ -114,7 +111,6 @@ public class UserService {
             user.setTimezone(updates.get("timezone"));
         }
 
-        // Baseline: if DOB or place changed, refresh sun sign by date (prevents nulls)
         if (updates.containsKey("dateOfBirth") || updates.containsKey("placeOfBirth")) {
             String sunSignName = SunSignCalculator.byDate(user.getDateOfBirth());
             ZodiacSign sunSign = signRepo.findByNameIgnoreCase(sunSignName)
@@ -122,7 +118,6 @@ public class UserService {
             user.setSunSign(sunSign);
         }
 
-        // If we now have all required fields, call RapidAPI to recalc ALL signs
         boolean hasAll = user.getTimeOfBirth() != null &&
                 user.getPlaceOfBirth() != null && !user.getPlaceOfBirth().isBlank() &&
                 user.getLatitude() != null &&
@@ -134,7 +129,7 @@ public class UserService {
                     user.getDateOfBirth(),
                     user.getTimeOfBirth(),
                     user.getName(),
-                    user.getPlaceOfBirth(), // used as "city" in payload
+                    user.getPlaceOfBirth(),
                     user.getLatitude(),
                     user.getLongitude(),
                     user.getTimezone());
@@ -157,7 +152,6 @@ public class UserService {
         return userRepo.save(user);
     }
 
-    // Map abbreviations or full strings to full sign names
     private String toFullSign(String sign) {
         if (sign == null)
             return null;
