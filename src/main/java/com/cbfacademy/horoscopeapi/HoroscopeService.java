@@ -5,6 +5,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.text.Normalizer;
 import java.time.LocalDate;
@@ -42,8 +43,7 @@ public class HoroscopeService {
 
             Map<String, Object> parsed = objectMapper.readValue(
                     response.getBody(),
-                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
-                    });
+                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
 
             // Clean just the horoscope text if present
             Object dataObj = parsed.get("data");
@@ -60,23 +60,23 @@ public class HoroscopeService {
             return objectMapper.writeValueAsString(parsed);
 
         } catch (Exception e) {
-            throw new RuntimeException("Horoscope-App-API error: " + e.getMessage(), e);
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Horoscope upstream error: " + e.getMessage(),
+                    e
+            );
         }
     }
 
     /** Minimal, readable cleaner for horoscope text. */
     private String cleanHoroscopeText(String originalText) {
-        if (originalText == null)
-            return null;
+        if (originalText == null) return null;
 
-        // Start from a normalized version (helps with some compatibility forms)
         String cleanedText = Normalizer.normalize(originalText, Normalizer.Form.NFKD);
 
-        // Replace ligatures first
         cleanedText = cleanedText.replace("\uFB01", "fi") // ﬁ
                 .replace("\uFB02", "fl"); // ﬂ
 
-        // Smart punctuation & common specials
         cleanedText = cleanedText.replace("\u2018", "'") // ‘
                 .replace("\u2019", "'") // ’
                 .replace("\u201C", "\"") // “
@@ -86,7 +86,6 @@ public class HoroscopeService {
                 .replace("\u2026", "...") // …
                 .replace('\u00A0', ' '); // NBSP
 
-        // Fallbacks when ligatures were already lost and became '?'
         cleanedText = cleanedText.replaceAll("(?i)re\\?nement", "refinement")
                 .replaceAll("(?i)re\\?ning", "refining")
                 .replaceAll("(?i)re-?de\\?ning", "re-defining")
@@ -161,19 +160,26 @@ public class HoroscopeService {
                     rapidApiUrl, HttpMethod.POST, entity, String.class);
 
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-                throw new RuntimeException("Astrologer API error: HTTP " + response.getStatusCode());
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        "Astrologer API error: HTTP " + response.getStatusCode()
+                );
             }
 
             Map<String, Object> root = objectMapper.readValue(response.getBody(), Map.class);
             Object dataObj = root.get("data");
             if (!(dataObj instanceof Map)) {
-                throw new RuntimeException("Unexpected response: missing 'data' object");
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        "Astrologer API error: missing 'data' object"
+                );
             }
+            @SuppressWarnings("unchecked")
             Map<String, Object> data = (Map<String, Object>) dataObj;
 
-            String sunSign = extractSign(data.get("sun")); // e.g., "Ari"
-            String moonSign = extractSign(data.get("moon")); // e.g., "Can"
-            String risingSign = extractRisingSign(data); // robust search
+            String sunSign = extractSign(data.get("sun"));    // e.g., "Ari"
+            String moonSign = extractSign(data.get("moon"));  // e.g., "Can"
+            String risingSign = extractRisingSign(data);      // robust search
 
             Map<String, String> result = new HashMap<>();
             result.put("sun", sunSign);
@@ -184,35 +190,39 @@ public class HoroscopeService {
 
         } catch (RestClientResponseException re) {
             String body = re.getResponseBodyAsString();
-            throw new RuntimeException("API error: " + body, re);
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Astrologer API error: " + body,
+                    re
+            );
+        } catch (ResponseStatusException rse) {
+            // already mapped with proper status; rethrow
+            throw rse;
         } catch (Exception e) {
-            throw new RuntimeException("Failed to calculate sun, moon, and rising signs", e);
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Failed to calculate sun, moon, and rising signs",
+                    e
+            );
         }
     }
 
     // helpers
 
-    /**
-     * Extract a sign string from a planet/point object that looks like { ...,
-     * "sign": "Ari", ... }
-     */
+    /** Extract a sign string from a planet/point object that looks like {"sign":"Ari", ...} */
     private String extractSign(Object planetOrPoint) {
         if (planetOrPoint instanceof Map<?, ?> m) {
             Object s = m.get("sign");
-            if (s instanceof String)
-                return (String) s;
-            // Some variants: {"zodiac_sign": {"sign": "Ari"}} or
-            // {"zodiac_sign":{"name":{"en":"Aries"}}}
+            if (s instanceof String) return (String) s;
+
             Object zs = m.get("zodiac_sign");
             if (zs instanceof Map<?, ?> zsm) {
                 Object sign = zsm.get("sign");
-                if (sign instanceof String)
-                    return (String) sign;
+                if (sign instanceof String) return (String) sign;
                 Object name = zsm.get("name");
                 if (name instanceof Map<?, ?> nm) {
                     Object en = nm.get("en");
-                    if (en instanceof String)
-                        return abbrev((String) en); // convert "Aries" -> "Ari"
+                    if (en instanceof String) return abbrev((String) en); // "Aries" -> "Ari"
                 }
             }
         }
@@ -222,83 +232,57 @@ public class HoroscopeService {
     /** Try multiple spots to find the Ascendant/rising sign. */
     @SuppressWarnings("unchecked")
     private String extractRisingSign(Map<String, Object> data) {
-        // 1) Common keys
         String s1 = extractSign(data.get("asc"));
-        if (s1 != null)
-            return s1;
+        if (s1 != null) return s1;
 
         String s2 = extractSign(data.get("ascendant"));
-        if (s2 != null)
-            return s2;
+        if (s2 != null) return s2;
 
-        // 2) First house object
         String s3 = extractSign(data.get("first_house"));
-        if (s3 != null)
-            return s3;
+        if (s3 != null) return s3;
 
-        // 3) Houses array/object forms
         Object houses = data.get("houses");
         if (houses instanceof List<?> list) {
             for (Object h : list) {
                 if (h instanceof Map<?, ?> hm) {
-                    // match house number/name = 1
                     Object num = hm.get("number");
                     if (num instanceof Number && ((Number) num).intValue() == 1) {
                         String sign = extractSign(hm);
-                        if (sign != null)
-                            return sign;
+                        if (sign != null) return sign;
                     }
                     Object name = hm.get("name");
                     if (name instanceof String && ((String) name).equalsIgnoreCase("first_house")) {
                         String sign = extractSign(hm);
-                        if (sign != null)
-                            return sign;
+                        if (sign != null) return sign;
                     }
                 }
             }
         } else if (houses instanceof Map<?, ?> hm) {
             Object first = hm.get("first_house");
             String sign = extractSign(first);
-            if (sign != null)
-                return sign;
+            if (sign != null) return sign;
         }
 
         return null; // couldn't find it
     }
 
-    /**
-     * Convert full sign names to 3-letter abbreviations used elsewhere, if needed.
-     */
+    /** Convert full sign names to 3-letter abbreviations used elsewhere, if needed. */
     private String abbrev(String full) {
-        if (full == null)
-            return null;
+        if (full == null) return null;
         switch (full.trim().toLowerCase()) {
-            case "aries":
-                return "Ari";
-            case "taurus":
-                return "Tau";
-            case "gemini":
-                return "Gem";
-            case "cancer":
-                return "Can";
-            case "leo":
-                return "Leo";
-            case "virgo":
-                return "Vir";
-            case "libra":
-                return "Lib";
-            case "scorpio":
-                return "Sco";
-            case "sagittarius":
-                return "Sag";
-            case "capricorn":
-                return "Cap";
-            case "aquarius":
-                return "Aqu";
-            case "pisces":
-                return "Pis";
-            default:
-                return full;
+            case "aries": return "Ari";
+            case "taurus": return "Tau";
+            case "gemini": return "Gem";
+            case "cancer": return "Can";
+            case "leo": return "Leo";
+            case "virgo": return "Vir";
+            case "libra": return "Lib";
+            case "scorpio": return "Sco";
+            case "sagittarius": return "Sag";
+            case "capricorn": return "Cap";
+            case "aquarius": return "Aqu";
+            case "pisces": return "Pis";
+            default: return full;
         }
     }
 }
