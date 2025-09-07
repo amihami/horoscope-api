@@ -82,7 +82,8 @@ public class UserController {
     /**
      * Calculate signs from a STRICT payload:
      * {
-     *   "subject": { year, month, day, hour, minute, city, name, latitude, longitude, timezone }
+     * "subject": { year, month, day, hour, minute, city, name, latitude, longitude,
+     * timezone }
      * }
      * All fields are REQUIRED.
      */
@@ -99,7 +100,7 @@ public class UserController {
         Map<String, Object> subject = (Map<String, Object>) payload.get("subject");
 
         // 2) Validate all required fields are present
-        String[] required = new String[]{
+        String[] required = new String[] {
                 "year", "month", "day", "hour", "minute",
                 "city", "name", "latitude", "longitude", "timezone"
         };
@@ -127,12 +128,13 @@ public class UserController {
         LocalDate dob = LocalDate.of(year, month, day);
         LocalTime tob = LocalTime.of(hour, minute);
 
-        // 5) Load user and update stored fields to reflect the subject (keeps DB consistent)
+        // 5) Load user and update stored fields to reflect the subject (keeps DB
+        // consistent)
         UserProfile user = userService.getUser(id);
-        user.setName(name);                // optional, but keeps subject & user aligned
+        user.setName(name); // optional, but keeps subject & user aligned
         user.setDateOfBirth(dob);
         user.setTimeOfBirth(tob);
-        user.setPlaceOfBirth(city);        //  use 'city' to populate placeOfBirth
+        user.setPlaceOfBirth(city); // use 'city' to populate placeOfBirth
         user.setLatitude(latitude);
         user.setLongitude(longitude);
         user.setTimezone(timezone);
@@ -152,10 +154,11 @@ public class UserController {
         return ResponseEntity.ok(updatedUser);
     }
 
-    //  helpers 
+    // helpers
     private int asInt(Object val, String fieldName) {
         try {
-            if (val instanceof Number n) return n.intValue();
+            if (val instanceof Number n)
+                return n.intValue();
             return Integer.parseInt(String.valueOf(val));
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, fieldName + " must be an integer.");
@@ -164,7 +167,8 @@ public class UserController {
 
     private double asDouble(Object val, String fieldName) {
         try {
-            if (val instanceof Number n) return n.doubleValue();
+            if (val instanceof Number n)
+                return n.doubleValue();
             return Double.parseDouble(String.valueOf(val));
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, fieldName + " must be a number.");
