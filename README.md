@@ -1,195 +1,113 @@
-Horoscope API
+<div align="center">
+  <img src="docs/images/HoroscopeImage.jpg" alt="logo" width="auto" height="auto" />
+  <h1>Horoscope API</h1>
+  <p>Calculate your Sun/Moon/Rising signs and find you daily/weekly/monthly forecasts.</p>
 
-Build user profiles, calculate astrological signs (sun, moon, rising), and fetch daily/weekly/monthly forecasts — all in one clean Spring Boot service.
+  <a href="https://img.shields.io/badge/LANGUAGE-JAVA-brightgreen">
+    <img src="https://img.shields.io/badge/LANGUAGE-JAVA-brightgreen" alt="Static Badge" />
+  </a>
 
-🚀 Features
+  ___
+</div>
 
-User Management (CRUD)
+_Please read all the way through before starting_
 
-Create, list, get-by-id, update (partial), delete
+### ✨ Features
 
-Filtering via JPA
+- User management (create, read, update, delete)
+- Find Sun sign from date of birth
+- Calculate Sun/Moon/Rising via external service
+- Find daily/weekly/monthly forecasts for a user’s Sun sign
+- Filter and find users by Sun/Moon/Rising sign
 
-Find users by Sun, Moon, or Rising sign
+### ✨ Tech Stack 
+- Java 21
+- Maven
+- Spring Boot
+- Spring Data JPA
+- MySQL
+- Swagger OpenAPI
+- JUnit 5
+- Jackson (ObjectMapper)
+- RestTemplate/HTTP
 
-Forecasting
+### ✨ API Documentation
 
-Daily / Weekly / Monthly forecasts (cleaned text)
+- Swagger UI (make sure API is running)
 
-Strict Sign Calculation
-
-Compute Sun/Moon/Rising from DOB, TOB, place, lat/lon, timezone
-
-Robust Errors
-
-Consistent HTTP status codes with ProblemDetail
-
-OpenAPI / Swagger
-
-Fully documented endpoints with examples
-
-👾 Tech Stack
-
-Java 21
-
-Maven
-
-Spring Boot
-
-Spring Data JPA
-
-MySQL
-
-springdoc / Swagger OpenAPI
-
-JUnit 5
-
-Mockito
-
-Jackson (ObjectMapper)
-
-RestTemplate / HTTP
-
-📖 API Documentation
-
-Swagger UI
+ ```
 http://localhost:8080/swagger-ui/index.html
+ ```
 
-OpenAPI JSON
-http://localhost:8080/v3/api-docs
+ ### ✨ Swagger 
+<div align="center">
+  <img src="docs/images/SwaggerUI.png" alt="logo" width="auto" height="auto" />
+</div>
 
-Make sure the app is running before opening Swagger.
+### ✨ Testing 
+- To run all tests run:
+```
+**./mvnw clean test**
+```
 
-🧪 Running Tests
-# all tests
-./mvnw clean test
+To run the SunSignCalculatorTest alone:
+```
+**./mvnw -Dtest=SunSignCalculatorTest test**
+```
 
-# single test (example)
-./mvnw -Dtest=SunSignCalculatorTest test
+To run UserServiceTest alone: 
+```
+** ./mvnw -Dtest=UserServiceTest test**
+```
 
-🏃 Getting Started
-# clone the project
-git clone <YOUR_REPO_URL>
+### ✨ Setting Up
+- Clone the Horoscope API
+
+```
+git clone <https://github.com/amihami/horoscope-api>
 cd horoscope-api
+```
 
-# build
+- Build
 ./mvnw clean install
 
-# run
+- Run the API (available at http://localhost:8080)
+    - mac
+```
 ./mvnw spring-boot:run
+```
+
+    - Windows 
+    - Linux
+
+### ✨ API Endpoints 
+<sub>(_all requests JSON_)</sub>
+
+1. Create User
+- POST /api/users
+
+2. Calculate Signs (STRICT payload)
+- POST /api/users/{id}/calculate-signs
+
+3. Forecasts (by user’s Sun sign)
+- GET /api/users/{id}/horoscope/daily
+- GET /api/users/{id}/horoscope/weekly
+- GET /api/users/{id}/horoscope/monthly
+
+4. Find Users by Sign (JPA filters)
+- GET /api/users/by-sun?sign=Aries
+- GET /api/users/by-moon?sign=Cancer
+- GET /api/users/by-rising?sign=Libra
 
 
-The API will be available at http://localhost:8080.
+### ✨ Important to Note
+- The endpoint /calculate-signs has a strict payload enforced to ensure the accuracy of sign calculations.
+    - All fields under subject are _required_
+    - For the fields _hour_ and _minute_, only integers values are excepted. Make sure there are no leading zeros.
+    - E.g. If born 03:07 AM → "hour": 3, "minute": 7 ✅ not "hour": 03, "minute": 07 ❌
+    - Be sure to use a valid IANA timezone, e.g. Europe/London, Africa/Nairobi.
+        -  Reference: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+- Forecast responses are cleaned for punctuation/ligatures to improve readability.
+- Use Swagger UI to try requests interactively and see request/response schemas.
 
-🔬 Example Endpoints
-1) Create User
-
-POST /api/users
-
-Request (JSON)
-
-{
-  "name": "Shannon",
-  "dateOfBirth": "1990-01-01",
-  "timeOfBirth": "08:30",
-  "placeOfBirth": "London"
-}
-
-
-Response 201 Created
-Location: /api/users/{id}
-Body: UserProfile (includes derived Sun sign)
-
-2) Calculate Signs (STRICT payload)
-
-POST /api/users/{id}/calculate-signs
-
-Important rules (read carefully):
-
-All fields under subject are required.
-
-Integers only for hour and minute. No leading zeros.
-
-If born 03:07 AM → "hour": 3, "minute": 7 (✅) not 03 / 07 (❌)
-
-Use a valid IANA timezone, e.g. Europe/London, America/New_York.
-Reference: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-
-Request (JSON)
-
-{
-  "subject": {
-    "year": 1990,
-    "month": 1,
-    "day": 1,
-    "hour": 3,
-    "minute": 7,
-    "city": "London",
-    "name": "Shannon",
-    "latitude": 51.5072,
-    "longitude": -0.1276,
-    "timezone": "Europe/London"
-  }
-}
-
-
-Response 200 OK
-Updated UserProfile with sunSign, moonSign, risingSign.
-
-3) Forecasts (by user’s Sun sign)
-
-GET /api/users/{id}/horoscope/daily
-
-GET /api/users/{id}/horoscope/weekly
-
-GET /api/users/{id}/horoscope/monthly
-
-Response 200 OK — Simplified object:
-
-{
-  "sign": "Aries",
-  "period": "weekly",
-  "day": null,
-  "text": "This week favors decisive moves and collaboration..."
-}
-
-4) Find Users by Sign (JPA filters)
-
-GET /api/users/by-sun?sign=Aries
-
-GET /api/users/by-moon?sign=Cancer
-
-GET /api/users/by-rising?sign=Libra
-
-Response 200 OK — UserProfile[]
-
-⚠️ Error Handling
-
-You’ll receive structured errors using ProblemDetail.
-
-Example: Missing required fields in strict payload
-
-{
-  "type": "about:blank",
-  "title": "Bad Request",
-  "status": 400,
-  "detail": "Missing required field(s): subject.hour, subject.minute"
-}
-
-
-Example: User not found
-
-{
-  "type": "about:blank",
-  "title": "Not Found",
-  "status": 404,
-  "detail": "User not found with id 3fa85f64-5717-4562-b3fc-2c963f66afa6"
-}
-
-📝 Notes
-
-Strict payload is enforced for /calculate-signs to ensure accurate astro calculations.
-
-Forecast responses are cleaned for punctuation/ligatures to improve readability.
-
-Use Swagger UI to try requests interactively and see request/response schemas.
+### ✨ Happy Forcasting ✨
