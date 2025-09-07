@@ -8,6 +8,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -26,9 +27,35 @@ public class UserController {
     // Create a new user
     @PostMapping
     public ResponseEntity<UserProfile> createUser(@RequestBody Map<String, String> payload) {
+        if (payload == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is required.");
+        }
+
         String name = payload.get("name");
-        LocalDate dob = LocalDate.parse(payload.get("dateOfBirth"));
-        LocalTime timeOfBirth = payload.containsKey("timeOfBirth") ? LocalTime.parse(payload.get("timeOfBirth")) : null;
+        String dobRaw = payload.get("dateOfBirth");
+        if (name == null || name.isBlank() || dobRaw == null || dobRaw.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "'name' and 'dateOfBirth' are required.");
+        }
+
+        final LocalDate dob;
+        try {
+            dob = LocalDate.parse(dobRaw); // expects ISO-8601, e.g. 2024-03-01
+        } catch (DateTimeParseException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Invalid 'dateOfBirth' format. Use ISO-8601, e.g. 2024-03-01.");
+        }
+
+        LocalTime timeOfBirth = null;
+        String tobRaw = payload.get("timeOfBirth");
+        if (tobRaw != null && !tobRaw.isBlank()) {
+            try {
+                timeOfBirth = LocalTime.parse(tobRaw); // e.g. 14:30
+            } catch (DateTimeParseException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Invalid 'timeOfBirth' format. Use HH:mm, e.g. 14:30.");
+            }
+        }
+
         String placeOfBirth = payload.getOrDefault("placeOfBirth", null);
 
         UserProfile user = userService.createUser(name, dob, timeOfBirth, placeOfBirth);
