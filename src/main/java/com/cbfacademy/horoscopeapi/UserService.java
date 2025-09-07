@@ -19,7 +19,7 @@ public class UserService {
     private final HoroscopeService horoscopeService;
 
     public UserService(UserProfileRepository userRepo, ZodiacSignRepository signRepo,
-            HoroscopeService horoscopeService) {
+                       HoroscopeService horoscopeService) {
         this.userRepo = userRepo;
         this.signRepo = signRepo;
         this.horoscopeService = horoscopeService;
@@ -71,18 +71,57 @@ public class UserService {
         userRepo.deleteById(id);
     }
 
+    /**
+     * Updates moon and rising signs using the external service.
+     * Throws IllegalArgumentException with exact messages expected by tests
+     * when required inputs are missing.
+     */
     @Transactional
     public void updateSigns(UserProfile user) {
-        if (user.getTimeOfBirth() == null || user.getPlaceOfBirth() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Time and place of birth must be set to calculate signs.");
+        // Guard 1: must have time and place
+        if (user.getTimeOfBirth() == null ||
+            user.getPlaceOfBirth() == null ||
+            user.getPlaceOfBirth().isBlank()) {
+            throw new IllegalArgumentException("Time and place of birth must be set");
         }
-        if (user.getLatitude() == null || user.getLongitude() == null ||
-                user.getTimezone() == null || user.getTimezone().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Latitude, longitude, and timezone must be set to calculate signs.");
+
+        // Guard 2: must have lat/lon/timezone
+        if (user.getLatitude() == null ||
+            user.getLongitude() == null ||
+            user.getTimezone() == null ||
+            user.getTimezone().isBlank()) {
+            throw new IllegalArgumentException("Latitude, longitude, and timezone must be set");
         }
-        // ... rest of your method unchanged ...
+
+        // Call external service only when inputs are complete
+        Map<String, String> signs = horoscopeService.getFullSigns(
+                user.getDateOfBirth(),
+                user.getTimeOfBirth(),
+                user.getName(),
+                user.getPlaceOfBirth(),
+                user.getLatitude(),
+                user.getLongitude(),
+                user.getTimezone()
+        );
+
+        if (signs != null) {
+            String sunFull   = toFullSign(signs.get("sun"));
+            String moonFull  = toFullSign(signs.get("moon"));
+            String risingFull= toFullSign(signs.get("rising"));
+
+            // Fallback for sun if upstream didn't provide it
+            if (sunFull == null || sunFull.isBlank()) {
+                sunFull = SunSignCalculator.byDate(user.getDateOfBirth());
+            }
+
+            ZodiacSign sunSign = signRepo.findByNameIgnoreCase(sunFull)
+                    .orElseThrow(() -> new IllegalStateException("Sun sign not found in DB"));
+            user.setSunSign(sunSign);
+            user.setMoonSign(moonFull);
+            user.setRisingSign(risingFull);
+        }
+
+        userRepo.save(user);
     }
 
     @Transactional
@@ -153,67 +192,40 @@ public class UserService {
     }
 
     private String toFullSign(String sign) {
-        if (sign == null)
-            return null;
+        if (sign == null) return null;
         String s = sign.trim();
-        if (s.isEmpty())
-            return null;
+        if (s.isEmpty()) return null;
 
         switch (s.toLowerCase()) {
-            case "aries":
-                return "Aries";
-            case "taurus":
-                return "Taurus";
-            case "gemini":
-                return "Gemini";
-            case "cancer":
-                return "Cancer";
-            case "leo":
-                return "Leo";
-            case "virgo":
-                return "Virgo";
-            case "libra":
-                return "Libra";
-            case "scorpio":
-                return "Scorpio";
-            case "sagittarius":
-                return "Sagittarius";
-            case "capricorn":
-                return "Capricorn";
-            case "aquarius":
-                return "Aquarius";
-            case "pisces":
-                return "Pisces";
+            case "aries": return "Aries";
+            case "taurus": return "Taurus";
+            case "gemini": return "Gemini";
+            case "cancer": return "Cancer";
+            case "leo": return "Leo";
+            case "virgo": return "Virgo";
+            case "libra": return "Libra";
+            case "scorpio": return "Scorpio";
+            case "sagittarius": return "Sagittarius";
+            case "capricorn": return "Capricorn";
+            case "aquarius": return "Aquarius";
+            case "pisces": return "Pisces";
         }
 
         String abbr = s.length() >= 3 ? s.substring(0, 3).toLowerCase() : s.toLowerCase();
         switch (abbr) {
-            case "ari":
-                return "Aries";
-            case "tau":
-                return "Taurus";
-            case "gem":
-                return "Gemini";
-            case "can":
-                return "Cancer";
-            case "leo":
-                return "Leo";
-            case "vir":
-                return "Virgo";
-            case "lib":
-                return "Libra";
-            case "sco":
-                return "Scorpio";
-            case "sag":
-                return "Sagittarius";
-            case "cap":
-                return "Capricorn";
-            case "aqu":
-                return "Aquarius";
-            case "pis":
-                return "Pisces";
-            default:
-                return s;
+            case "ari": return "Aries";
+            case "tau": return "Taurus";
+            case "gem": return "Gemini";
+            case "can": return "Cancer";
+            case "leo": return "Leo";
+            case "vir": return "Virgo";
+            case "lib": return "Libra";
+            case "sco": return "Scorpio";
+            case "sag": return "Sagittarius";
+            case "cap": return "Capricorn";
+            case "aqu": return "Aquarius";
+            case "pis": return "Pisces";
+            default: return s;
         }
     }
 }
