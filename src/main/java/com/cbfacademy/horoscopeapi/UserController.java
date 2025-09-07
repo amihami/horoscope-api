@@ -47,6 +47,21 @@ public class UserController {
         return userService.getAllUsers();
     }
 
+    @GetMapping("/by-sun")
+    public List<UserProfile> findBySun(@RequestParam("sign") String sign) {
+        return userService.findBySunSign(sign);
+    }
+
+    @GetMapping("/by-moon")
+    public List<UserProfile> findByMoon(@RequestParam("sign") String sign) {
+        return userService.findByMoonSign(sign);
+    }
+
+    @GetMapping("/by-rising")
+    public List<UserProfile> findByRising(@RequestParam("sign") String sign) {
+        return userService.findByRisingSign(sign);
+    }
+
     // Delete a user by ID
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteUser(@PathVariable UUID id) {
