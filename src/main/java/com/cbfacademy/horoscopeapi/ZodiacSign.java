@@ -20,7 +20,6 @@ public class ZodiacSign {
 
     private String traits;
 
-    // Constructors
     public ZodiacSign() {
     }
 
@@ -32,7 +31,6 @@ public class ZodiacSign {
         this.traits = traits;
     }
 
-    // Getters and Setters
     public Integer getId() {
         return id;
     }
