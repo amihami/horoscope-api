@@ -25,7 +25,6 @@ public class UserService {
 
     @Transactional
     public UserProfile createUser(String name, LocalDate dob, LocalTime timeOfBirth, String placeOfBirth) {
-
         String sunSignName = SunSignCalculator.byDate(dob);
         ZodiacSign sunSign = signRepo.findByNameIgnoreCase(sunSignName)
                 .orElseThrow(() -> new IllegalStateException("Zodiac sign not found: " + sunSignName));
@@ -67,7 +66,6 @@ public class UserService {
             throw new IllegalArgumentException("Latitude, longitude, and timezone must be set to calculate signs.");
         }
 
-        // Use placeOfBirth for the "city" field in the RapidAPI payload
         String cityOrPlace = user.getPlaceOfBirth();
 
         Map<String, String> signs = horoscopeService.getFullSigns(
@@ -80,23 +78,19 @@ public class UserService {
                 user.getTimezone()
         );
 
-        // Normalize sun sign from API (may be "Ari", "Sag", etc.) to full name for DB lookup
-        String sunFromApi = signs.get("sun");
-        String sunSignFull = toFullSunSign(sunFromApi);
+        String sunFull    = toFullSign(signs.get("sun"));
+        String moonFull   = toFullSign(signs.get("moon"));
+        String risingFull = toFullSign(signs.get("rising"));
 
-        if (sunSignFull == null || sunSignFull.isBlank()) {
-            // Fallback to date-based if API unexpected
-            sunSignFull = SunSignCalculator.byDate(user.getDateOfBirth());
+        if (sunFull == null || sunFull.isBlank()) {
+            sunFull = SunSignCalculator.byDate(user.getDateOfBirth());
         }
 
-        ZodiacSign sunSign = signRepo.findByNameIgnoreCase(sunSignFull)
+        ZodiacSign sunSign = signRepo.findByNameIgnoreCase(sunFull)
                 .orElseThrow(() -> new IllegalStateException("Sun sign not found in DB"));
-
         user.setSunSign(sunSign);
-
-        // Keep moon/rising as the short codes (matches your example output)
-        user.setMoonSign(signs.get("moon"));
-        user.setRisingSign(signs.get("rising"));
+        user.setMoonSign(moonFull);
+        user.setRisingSign(risingFull);
 
         userRepo.save(user);
     }
@@ -105,6 +99,7 @@ public class UserService {
     public UserProfile updateUser(UUID id, Map<String, String> updates) {
         UserProfile user = getUser(id);
 
+        // Basic field updates (strings in request)
         if (updates.containsKey("name")) {
             user.setName(updates.get("name"));
         }
@@ -127,6 +122,7 @@ public class UserService {
             user.setTimezone(updates.get("timezone"));
         }
 
+        // Baseline: if DOB or place changed, refresh sun sign by date (prevents nulls)
         if (updates.containsKey("dateOfBirth") || updates.containsKey("placeOfBirth")) {
             String sunSignName = SunSignCalculator.byDate(user.getDateOfBirth());
             ZodiacSign sunSign = signRepo.findByNameIgnoreCase(sunSignName)
@@ -134,17 +130,49 @@ public class UserService {
             user.setSunSign(sunSign);
         }
 
-        return user;
+        // If we now have all required fields, call RapidAPI to recalc ALL signs
+        boolean hasAll =
+                user.getTimeOfBirth() != null &&
+                user.getPlaceOfBirth() != null && !user.getPlaceOfBirth().isBlank() &&
+                user.getLatitude() != null &&
+                user.getLongitude() != null &&
+                user.getTimezone() != null && !user.getTimezone().isBlank();
+
+        if (hasAll) {
+            Map<String, String> signs = horoscopeService.getFullSigns(
+                    user.getDateOfBirth(),
+                    user.getTimeOfBirth(),
+                    user.getName(),
+                    user.getPlaceOfBirth(),       // used as "city" in payload
+                    user.getLatitude(),
+                    user.getLongitude(),
+                    user.getTimezone()
+            );
+
+            String sunFull    = toFullSign(signs.get("sun"));
+            String moonFull   = toFullSign(signs.get("moon"));
+            String risingFull = toFullSign(signs.get("rising"));
+
+            if (sunFull == null || sunFull.isBlank()) {
+                sunFull = SunSignCalculator.byDate(user.getDateOfBirth());
+            }
+
+            ZodiacSign sunSign = signRepo.findByNameIgnoreCase(sunFull)
+                    .orElseThrow(() -> new IllegalStateException("Sun sign not found in DB"));
+            user.setSunSign(sunSign);
+            user.setMoonSign(moonFull);
+            user.setRisingSign(risingFull);
+        }
+
+        return userRepo.save(user);
     }
 
-    // --- Helpers ---
-
-    private String toFullSunSign(String sign) {
+    // Map abbreviations or full strings to full sign names
+    private String toFullSign(String sign) {
         if (sign == null) return null;
         String s = sign.trim();
         if (s.isEmpty()) return null;
 
-        // Already full name?
         switch (s.toLowerCase()) {
             case "aries": return "Aries";
             case "taurus": return "Taurus";
@@ -160,7 +188,6 @@ public class UserService {
             case "pisces": return "Pisces";
         }
 
-        // Common 3 letter codes from the API
         String abbr = s.length() >= 3 ? s.substring(0, 3).toLowerCase() : s.toLowerCase();
         switch (abbr) {
             case "ari": return "Aries";
@@ -175,7 +202,7 @@ public class UserService {
             case "cap": return "Capricorn";
             case "aqu": return "Aquarius";
             case "pis": return "Pisces";
-            default: return null;
+            default: return s;
         }
     }
 }

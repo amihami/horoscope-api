@@ -16,7 +16,7 @@ public class HoroscopeService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // Public horoscope API (kept)
+    // Public horoscope API 
     private final String horoscopeApiUrl = "https://horoscope-app-api.vercel.app/api/v1/get-horoscope";
 
     // RapidAPI Astrologer
@@ -28,7 +28,7 @@ public class HoroscopeService {
         this.restTemplate = restTemplate;
     }
 
-    // ----------------- Public horoscopes (unchanged) -----------------
+    //  Public horoscopes 
 
     private String fetchPublicHoroscope(String sign, String period, String day) {
         try {
@@ -47,9 +47,8 @@ public class HoroscopeService {
     public String getWeeklyHoroscope(String sunSign) { return fetchPublicHoroscope(sunSign, "weekly", null); }
     public String getMonthlyHoroscope(String sunSign) { return fetchPublicHoroscope(sunSign, "monthly", null); }
 
-    // ----------------- Signs from RapidAPI -----------------
+    //  Signs from RapidAPI 
 
-    @SuppressWarnings("unchecked")
     public Map<String, String> getFullSigns(
             LocalDate dob,
             LocalTime tob,
@@ -124,7 +123,7 @@ public class HoroscopeService {
         }
     }
 
-    // --- helpers ---
+    //  helpers 
 
     /** Extract a sign string from a planet/point object that looks like { ..., "sign": "Ari", ... } */
     private String extractSign(Object planetOrPoint) {

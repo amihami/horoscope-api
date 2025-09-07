@@ -132,7 +132,7 @@ public class UserController {
         user.setName(name);                // optional, but keeps subject & user aligned
         user.setDateOfBirth(dob);
         user.setTimeOfBirth(tob);
-        user.setPlaceOfBirth(city);        // we use 'city' to populate placeOfBirth
+        user.setPlaceOfBirth(city);        //  use 'city' to populate placeOfBirth
         user.setLatitude(latitude);
         user.setLongitude(longitude);
         user.setTimezone(timezone);
@@ -152,7 +152,7 @@ public class UserController {
         return ResponseEntity.ok(updatedUser);
     }
 
-    // ---------- helpers ----------
+    //  helpers 
     private int asInt(Object val, String fieldName) {
         try {
             if (val instanceof Number n) return n.intValue();
