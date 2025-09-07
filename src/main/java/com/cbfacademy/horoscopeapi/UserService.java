@@ -2,6 +2,7 @@ package com.cbfacademy.horoscopeapi;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -16,7 +17,7 @@ public class UserService {
     private final HoroscopeService horoscopeService;
 
     public UserService(UserProfileRepository userRepo, ZodiacSignRepository signRepo,
-            HoroscopeService horoscopeService) {
+                       HoroscopeService horoscopeService) {
         this.userRepo = userRepo;
         this.signRepo = signRepo;
         this.horoscopeService = horoscopeService;
@@ -61,24 +62,39 @@ public class UserService {
         if (user.getTimeOfBirth() == null || user.getPlaceOfBirth() == null) {
             throw new IllegalArgumentException("Time and place of birth must be set to calculate signs.");
         }
+        if (user.getLatitude() == null || user.getLongitude() == null ||
+            user.getTimezone() == null || user.getTimezone().isBlank()) {
+            throw new IllegalArgumentException("Latitude, longitude, and timezone must be set to calculate signs.");
+        }
 
-        // Call HoroscopeService to get full signs (sun, moon, rising)
+        // Use placeOfBirth for the "city" field in the RapidAPI payload
+        String cityOrPlace = user.getPlaceOfBirth();
+
         Map<String, String> signs = horoscopeService.getFullSigns(
                 user.getDateOfBirth(),
                 user.getTimeOfBirth(),
-                user.getPlaceOfBirth());
+                user.getName(),
+                cityOrPlace,
+                user.getLatitude(),
+                user.getLongitude(),
+                user.getTimezone()
+        );
 
-        // Update sun sign from API response, preferred if available
-        String sunSignName = signs.get("sun");
-        if (sunSignName == null || sunSignName.isEmpty()) {
-            // fallback to calculation by date
-            sunSignName = SunSignCalculator.byDate(user.getDateOfBirth());
+        // Normalize sun sign from API (may be "Ari", "Sag", etc.) to full name for DB lookup
+        String sunFromApi = signs.get("sun");
+        String sunSignFull = toFullSunSign(sunFromApi);
+
+        if (sunSignFull == null || sunSignFull.isBlank()) {
+            // Fallback to date-based if API unexpected
+            sunSignFull = SunSignCalculator.byDate(user.getDateOfBirth());
         }
-        ZodiacSign sunSign = signRepo.findByNameIgnoreCase(sunSignName)
+
+        ZodiacSign sunSign = signRepo.findByNameIgnoreCase(sunSignFull)
                 .orElseThrow(() -> new IllegalStateException("Sun sign not found in DB"));
+
         user.setSunSign(sunSign);
 
-        // Update moon and rising signs from API
+        // Keep moon/rising as the short codes (matches your example output)
         user.setMoonSign(signs.get("moon"));
         user.setRisingSign(signs.get("rising"));
 
@@ -87,34 +103,79 @@ public class UserService {
 
     @Transactional
     public UserProfile updateUser(UUID id, Map<String, String> updates) {
-        // Get user from the database
         UserProfile user = getUser(id);
 
-        // Update fields if present in the request map
         if (updates.containsKey("name")) {
             user.setName(updates.get("name"));
         }
-
         if (updates.containsKey("dateOfBirth")) {
             user.setDateOfBirth(LocalDate.parse(updates.get("dateOfBirth")));
         }
-
         if (updates.containsKey("timeOfBirth")) {
             user.setTimeOfBirth(LocalTime.parse(updates.get("timeOfBirth")));
         }
-
         if (updates.containsKey("placeOfBirth")) {
             user.setPlaceOfBirth(updates.get("placeOfBirth"));
         }
+        if (updates.containsKey("latitude")) {
+            user.setLatitude(Double.parseDouble(updates.get("latitude")));
+        }
+        if (updates.containsKey("longitude")) {
+            user.setLongitude(Double.parseDouble(updates.get("longitude")));
+        }
+        if (updates.containsKey("timezone")) {
+            user.setTimezone(updates.get("timezone"));
+        }
 
-        // If dateOfBirth or placeOfBirth changed, recalculate sugn sign
         if (updates.containsKey("dateOfBirth") || updates.containsKey("placeOfBirth")) {
             String sunSignName = SunSignCalculator.byDate(user.getDateOfBirth());
             ZodiacSign sunSign = signRepo.findByNameIgnoreCase(sunSignName)
                     .orElseThrow(() -> new IllegalStateException("Sun sign not found in DB"));
             user.setSunSign(sunSign);
         }
+
         return user;
     }
 
+    // --- Helpers ---
+
+    private String toFullSunSign(String sign) {
+        if (sign == null) return null;
+        String s = sign.trim();
+        if (s.isEmpty()) return null;
+
+        // Already full name?
+        switch (s.toLowerCase()) {
+            case "aries": return "Aries";
+            case "taurus": return "Taurus";
+            case "gemini": return "Gemini";
+            case "cancer": return "Cancer";
+            case "leo": return "Leo";
+            case "virgo": return "Virgo";
+            case "libra": return "Libra";
+            case "scorpio": return "Scorpio";
+            case "sagittarius": return "Sagittarius";
+            case "capricorn": return "Capricorn";
+            case "aquarius": return "Aquarius";
+            case "pisces": return "Pisces";
+        }
+
+        // Common 3-letter codes from the API
+        String abbr = s.length() >= 3 ? s.substring(0, 3).toLowerCase() : s.toLowerCase();
+        switch (abbr) {
+            case "ari": return "Aries";
+            case "tau": return "Taurus";
+            case "gem": return "Gemini";
+            case "can": return "Cancer";
+            case "leo": return "Leo";
+            case "vir": return "Virgo";
+            case "lib": return "Libra";
+            case "sco": return "Scorpio";
+            case "sag": return "Sagittarius";
+            case "cap": return "Capricorn";
+            case "aqu": return "Aquarius";
+            case "pis": return "Pisces";
+            default: return null;
+        }
+    }
 }

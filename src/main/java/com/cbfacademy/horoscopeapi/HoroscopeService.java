@@ -3,167 +3,147 @@ package com.cbfacademy.horoscopeapi;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
-import com.fasterxml.jackson.core.type.TypeReference;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class HoroscopeService {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final String baseUrl = "https://json.freeastrologyapi.com";
-    private final String apiKey = "OlvnxEcksI2wMqHcnMbEr7OdU1bn03dM6R17GgUs";
+
+    // Public horoscope API (kept)
     private final String horoscopeApiUrl = "https://horoscope-app-api.vercel.app/api/v1/get-horoscope";
+
+    // RapidAPI Astrologer (names as requested)
+    private final String rapidApiUrl  = "https://astrologer.p.rapidapi.com/api/v4/birth-chart";
+    private final String rapidApiHost = "astrologer.p.rapidapi.com";
+    private final String rapidApiKey  = "9a3e4f3829msh20a1322bdc9f34fp1790adjsneca176e1ef77";
 
     public HoroscopeService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
     }
 
-    
+    // ----------------- Public horoscopes (unchanged) -----------------
+
     private String fetchPublicHoroscope(String sign, String period, String day) {
         try {
             String url = horoscopeApiUrl + "/" + period + "?sign=" + sign.toLowerCase();
-            if (day != null) {
-                url += "&day=" + day.toLowerCase();
-            }
+            if (day != null) url += "&day=" + day.toLowerCase();
 
             ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
-
-  
-            Map<String, Object> parsed = objectMapper.readValue(
-                    response.getBody(),
-                    new TypeReference<Map<String, Object>>() {
-                    });
-
-    
-            return objectMapper.writeValueAsString(parsed);
+            return response.getBody();
 
         } catch (Exception e) {
             throw new RuntimeException("Horoscope-App-API error: " + e.getMessage(), e);
         }
     }
 
+    public String getDailyHoroscope(String sunSign) { return fetchPublicHoroscope(sunSign, "daily", "today"); }
+    public String getWeeklyHoroscope(String sunSign) { return fetchPublicHoroscope(sunSign, "weekly", null); }
+    public String getMonthlyHoroscope(String sunSign) { return fetchPublicHoroscope(sunSign, "monthly", null); }
 
-    public String getDailyHoroscope(String sunSign) {
-        return fetchPublicHoroscope(sunSign, "daily", "today");
-    }
+    // ----------------- Signs from RapidAPI -----------------
 
-
-    public String getWeeklyHoroscope(String sunSign) {
-        return fetchPublicHoroscope(sunSign, "weekly", null);
-    }
-
-    public String getMonthlyHoroscope(String sunSign) {
-        return fetchPublicHoroscope(sunSign, "monthly", null);
-    }
-
+    /**
+     * Builds EXACT payload:
+     * {
+     *   "subject": {
+     *     "year","month","day","hour","minute",
+     *     "city","name","latitude","longitude","timezone"
+     *   }
+     * }
+     * and returns { sun, moon, rising } from the response.
+     */
     @SuppressWarnings("unchecked")
-    public Map<String, String> getFullSigns(LocalDate dob, LocalTime tob, String place) {
+    public Map<String, String> getFullSigns(
+            LocalDate dob,
+            LocalTime tob,
+            String name,
+            String cityOrPlace,
+            double latitude,
+            double longitude,
+            String timezone
+    ) {
         try {
-            String geoUrl = baseUrl + "/geo-details";
-            Map<String, String> geoPayload = new HashMap<>();
-            geoPayload.put("location", place);
+            if (dob == null) throw new IllegalArgumentException("Date of birth is required.");
+            if (tob == null) throw new IllegalArgumentException("Time of birth is required.");
+            if (name == null || name.isBlank()) throw new IllegalArgumentException("Name is required.");
+            if (cityOrPlace == null || cityOrPlace.isBlank()) throw new IllegalArgumentException("City/place is required.");
+            if (timezone == null || timezone.isBlank()) throw new IllegalArgumentException("Timezone is required.");
+
+            // Build the EXACT subject body from existing fields (no extra DB columns needed)
+            Map<String, Object> subject = new HashMap<>();
+            subject.put("year",   dob.getYear());
+            subject.put("month",  dob.getMonthValue());
+            subject.put("day",    dob.getDayOfMonth());
+            subject.put("hour",   tob.getHour());
+            subject.put("minute", tob.getMinute());
+            subject.put("city",   cityOrPlace);
+            subject.put("name",   name);
+            subject.put("latitude",  latitude);
+            subject.put("longitude", longitude);
+            subject.put("timezone",  timezone);
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("subject", subject);
+
+            // --- IMPORTANT: serialize to String to avoid "missing body" (no chunked) ---
+            String jsonBody = objectMapper.writeValueAsString(body);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("x-api-key", apiKey);
+            headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+            headers.set("x-rapidapi-host", rapidApiHost);
+            headers.set("x-rapidapi-key",  rapidApiKey);
 
-            HttpEntity<Map<String, String>> geoEntity = new HttpEntity<>(geoPayload, headers);
+            HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
 
-            // Delay 1 second before request to accomodate API access restrictions
-            Thread.sleep(1000);
+            ResponseEntity<String> response = restTemplate.exchange(
+                    rapidApiUrl, HttpMethod.POST, entity, String.class);
 
-            ResponseEntity<String> geoResponse = restTemplate.postForEntity(geoUrl, geoEntity, String.class);
-
-            // Handle both single object and list responses
-            Object geoResponseObj = objectMapper.readValue(geoResponse.getBody(), Object.class);
-            Map<String, Object> geo;
-
-            if (geoResponseObj instanceof List) {
-                List<Map<String, Object>> geoList = (List<Map<String, Object>>) geoResponseObj;
-                geo = geoList.get(0);
-            } else if (geoResponseObj instanceof Map) {
-                geo = (Map<String, Object>) geoResponseObj;
-            } else {
-                throw new RuntimeException("Unexpected geo-details response format");
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                throw new RuntimeException("Astrologer API error: HTTP " + response.getStatusCode());
             }
 
-            if (geo.get("latitude") == null || geo.get("longitude") == null || geo.get("timezone_offset") == null) {
-                throw new RuntimeException("Geo-details API returned incomplete location info for: " + place);
+            Map<String, Object> root = objectMapper.readValue(response.getBody(), Map.class);
+            Object dataObj = root.get("data");
+            if (!(dataObj instanceof Map)) {
+                throw new RuntimeException("Unexpected response: missing 'data' object");
             }
+            Map<String, Object> data = (Map<String, Object>) dataObj;
 
-            double latitude = ((Number) geo.get("latitude")).doubleValue();
-            double longitude = ((Number) geo.get("longitude")).doubleValue();
-            double timezone = ((Number) geo.get("timezone_offset")).doubleValue();
-
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("year", dob.getYear());
-            payload.put("month", dob.getMonthValue());
-            payload.put("date", dob.getDayOfMonth());
-            payload.put("hours", tob.getHour());
-            payload.put("minutes", tob.getMinute());
-            payload.put("seconds", tob.getSecond());
-            payload.put("latitude", latitude);
-            payload.put("longitude", longitude);
-            payload.put("timezone", timezone);
-
-            Map<String, Object> config = new HashMap<>();
-            config.put("observation_point", "topocentric");
-            config.put("ayanamsha", "tropical");
-            config.put("language", "en");
-
-            payload.put("config", config);
-
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
-
-            String planetsUrl = baseUrl + "/western/planets";
-
-            // delay for same reason as above
-            Thread.sleep(1000);
-
-            ResponseEntity<String> planetsResponse = restTemplate.postForEntity(planetsUrl, entity, String.class);
-
-            Map<String, Object> planetsBody = objectMapper.readValue(
-                    planetsResponse.getBody(),
-                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
-                    });
-
-            List<Map<String, Object>> output = (List<Map<String, Object>>) planetsBody.get("output");
-
-            String sunSign = null;
-            String moonSign = null;
-            String risingSign = null;
-
-            for (Map<String, Object> planetEntry : output) {
-                Map<String, Object> planet = (Map<String, Object>) planetEntry.get("planet");
-                String planetName = (String) planet.get("en");
-
-                Map<String, Object> zodiacSign = (Map<String, Object>) planetEntry.get("zodiac_sign");
-                Map<String, String> nameMap = (Map<String, String>) zodiacSign.get("name");
-                String signName = nameMap.get("en");
-
-                switch (planetName.toLowerCase()) {
-                    case "sun" -> sunSign = signName;
-                    case "moon" -> moonSign = signName;
-                    case "ascendant" -> risingSign = signName;
-                }
-            }
+            String sunSign    = extractSign(data.get("sun"));
+            String moonSign   = extractSign(data.get("moon"));
+            String risingSign = extractSign(data.get("asc")); // Ascendant
 
             Map<String, String> result = new HashMap<>();
-            result.put("sun", sunSign);
-            result.put("moon", moonSign);
+            result.put("sun",    sunSign);
+            result.put("moon",   moonSign);
             result.put("rising", risingSign);
 
             return result;
 
+        } catch (RestClientResponseException re) {
+            // Propagate server-provided error body for easier debugging
+            String body = re.getResponseBodyAsString();
+            throw new RuntimeException("API error: " + body, re);
         } catch (Exception e) {
             throw new RuntimeException("Failed to calculate sun, moon, and rising signs", e);
         }
+    }
+
+    private String extractSign(Object planetOrPoint) {
+        if (planetOrPoint instanceof Map<?, ?> m) {
+            Object s = m.get("sign");
+            return (s instanceof String) ? (String) s : null;
+        }
+        return null;
     }
 }
