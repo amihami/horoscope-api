@@ -8,9 +8,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class HoroscopeService {
@@ -21,7 +19,7 @@ public class HoroscopeService {
     // Public horoscope API (kept)
     private final String horoscopeApiUrl = "https://horoscope-app-api.vercel.app/api/v1/get-horoscope";
 
-    // RapidAPI Astrologer (names as requested)
+    // RapidAPI Astrologer
     private final String rapidApiUrl  = "https://astrologer.p.rapidapi.com/api/v4/birth-chart";
     private final String rapidApiHost = "astrologer.p.rapidapi.com";
     private final String rapidApiKey  = "9a3e4f3829msh20a1322bdc9f34fp1790adjsneca176e1ef77";
@@ -51,16 +49,6 @@ public class HoroscopeService {
 
     // ----------------- Signs from RapidAPI -----------------
 
-    /**
-     * Builds EXACT payload:
-     * {
-     *   "subject": {
-     *     "year","month","day","hour","minute",
-     *     "city","name","latitude","longitude","timezone"
-     *   }
-     * }
-     * and returns { sun, moon, rising } from the response.
-     */
     @SuppressWarnings("unchecked")
     public Map<String, String> getFullSigns(
             LocalDate dob,
@@ -78,7 +66,6 @@ public class HoroscopeService {
             if (cityOrPlace == null || cityOrPlace.isBlank()) throw new IllegalArgumentException("City/place is required.");
             if (timezone == null || timezone.isBlank()) throw new IllegalArgumentException("Timezone is required.");
 
-            // Build the EXACT subject body from existing fields (no extra DB columns needed)
             Map<String, Object> subject = new HashMap<>();
             subject.put("year",   dob.getYear());
             subject.put("month",  dob.getMonthValue());
@@ -94,7 +81,6 @@ public class HoroscopeService {
             Map<String, Object> body = new HashMap<>();
             body.put("subject", subject);
 
-            // --- IMPORTANT: serialize to String to avoid "missing body" (no chunked) ---
             String jsonBody = objectMapper.writeValueAsString(body);
 
             HttpHeaders headers = new HttpHeaders();
@@ -119,9 +105,9 @@ public class HoroscopeService {
             }
             Map<String, Object> data = (Map<String, Object>) dataObj;
 
-            String sunSign    = extractSign(data.get("sun"));
-            String moonSign   = extractSign(data.get("moon"));
-            String risingSign = extractSign(data.get("asc")); // Ascendant
+            String sunSign    = extractSign(data.get("sun"));   // e.g., "Ari"
+            String moonSign   = extractSign(data.get("moon"));  // e.g., "Can"
+            String risingSign = extractRisingSign(data);        // robust search
 
             Map<String, String> result = new HashMap<>();
             result.put("sun",    sunSign);
@@ -131,7 +117,6 @@ public class HoroscopeService {
             return result;
 
         } catch (RestClientResponseException re) {
-            // Propagate server-provided error body for easier debugging
             String body = re.getResponseBodyAsString();
             throw new RuntimeException("API error: " + body, re);
         } catch (Exception e) {
@@ -139,11 +124,86 @@ public class HoroscopeService {
         }
     }
 
+    // --- helpers ---
+
+    /** Extract a sign string from a planet/point object that looks like { ..., "sign": "Ari", ... } */
     private String extractSign(Object planetOrPoint) {
         if (planetOrPoint instanceof Map<?, ?> m) {
             Object s = m.get("sign");
-            return (s instanceof String) ? (String) s : null;
+            if (s instanceof String) return (String) s;
+            // Some variants: {"zodiac_sign": {"sign": "Ari"}} or {"zodiac_sign":{"name":{"en":"Aries"}}}
+            Object zs = m.get("zodiac_sign");
+            if (zs instanceof Map<?, ?> zsm) {
+                Object sign = zsm.get("sign");
+                if (sign instanceof String) return (String) sign;
+                Object name = zsm.get("name");
+                if (name instanceof Map<?, ?> nm) {
+                    Object en = nm.get("en");
+                    if (en instanceof String) return abbrev((String) en); // convert "Aries" -> "Ari"
+                }
+            }
         }
         return null;
+    }
+
+    /** Try multiple spots to find the Ascendant/rising sign. */
+    @SuppressWarnings("unchecked")
+    private String extractRisingSign(Map<String, Object> data) {
+        // 1) Common keys
+        String s1 = extractSign(data.get("asc"));
+        if (s1 != null) return s1;
+
+        String s2 = extractSign(data.get("ascendant"));
+        if (s2 != null) return s2;
+
+        // 2) First house object
+        String s3 = extractSign(data.get("first_house"));
+        if (s3 != null) return s3;
+
+        // 3) Houses array/object forms
+        Object houses = data.get("houses");
+        if (houses instanceof List<?> list) {
+            for (Object h : list) {
+                if (h instanceof Map<?, ?> hm) {
+                    // match house number/name = 1
+                    Object num = hm.get("number");
+                    if (num instanceof Number && ((Number) num).intValue() == 1) {
+                        String sign = extractSign(hm);
+                        if (sign != null) return sign;
+                    }
+                    Object name = hm.get("name");
+                    if (name instanceof String && ((String) name).equalsIgnoreCase("first_house")) {
+                        String sign = extractSign(hm);
+                        if (sign != null) return sign;
+                    }
+                }
+            }
+        } else if (houses instanceof Map<?, ?> hm) {
+            Object first = hm.get("first_house");
+            String sign = extractSign(first);
+            if (sign != null) return sign;
+        }
+
+        return null; // couldn't find it
+    }
+
+    /** Convert full sign names to 3-letter abbreviations used elsewhere, if needed. */
+    private String abbrev(String full) {
+        if (full == null) return null;
+        switch (full.trim().toLowerCase()) {
+            case "aries": return "Ari";
+            case "taurus": return "Tau";
+            case "gemini": return "Gem";
+            case "cancer": return "Can";
+            case "leo": return "Leo";
+            case "virgo": return "Vir";
+            case "libra": return "Lib";
+            case "scorpio": return "Sco";
+            case "sagittarius": return "Sag";
+            case "capricorn": return "Cap";
+            case "aquarius": return "Aqu";
+            case "pisces": return "Pis";
+            default: return full;
+        }
     }
 }
