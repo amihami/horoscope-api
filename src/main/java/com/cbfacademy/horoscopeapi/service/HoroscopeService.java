@@ -1,4 +1,4 @@
-package com.cbfacademy.horoscopeapi;
+package com.cbfacademy.horoscopeapi.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.*;

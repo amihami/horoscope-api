@@ -1,4 +1,4 @@
-package com.cbfacademy.horoscopeapi;
+package com.cbfacademy.horoscopeapi.util;
 
 import java.time.LocalDate;
 

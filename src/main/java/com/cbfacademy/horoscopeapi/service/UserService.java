@@ -1,9 +1,15 @@
-package com.cbfacademy.horoscopeapi;
+package com.cbfacademy.horoscopeapi.service;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import com.cbfacademy.horoscopeapi.model.UserProfile;
+import com.cbfacademy.horoscopeapi.model.ZodiacSign;
+import com.cbfacademy.horoscopeapi.repository.UserProfileRepository;
+import com.cbfacademy.horoscopeapi.repository.ZodiacSignRepository;
+import com.cbfacademy.horoscopeapi.util.SunSignCalculator;
 
 import java.time.LocalDate;
 import java.time.LocalTime;

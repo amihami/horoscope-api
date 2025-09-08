@@ -1,4 +1,4 @@
-package com.cbfacademy.horoscopeapi;
+package com.cbfacademy.horoscopeapi.config;
 
 import io.swagger.v3.oas.models.ExternalDocumentation;
 import io.swagger.v3.oas.models.OpenAPI;

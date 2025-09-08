@@ -1,6 +1,9 @@
-package com.cbfacademy.horoscopeapi;
+package com.cbfacademy.horoscopeapi.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.cbfacademy.horoscopeapi.model.UserProfile;
+
 import java.util.List;
 import java.util.UUID;
 
