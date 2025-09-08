@@ -1,4 +1,4 @@
-package com.cbfacademy.horoscopeapi;
+package com.cbfacademy.horoscopeapi.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;

@@ -141,6 +141,23 @@ mvnw.cmd spring-boot:run
 
 ---
 
+### ✨ Dump File 
+- Database dump: 
+    ```
+    `./db/horoscope_dump.sql`
+    ```
+
+- Restore (macOS/Linux):
+    ```
+    mysql -u <username> -p < db/horoscope_dump.sql
+    ```
+
+- Restore (Windows PowerShell):
+    ```
+    mysql -u <username> -p < .\db\horoscope_dump.sql
+    ```
+---
+
 ### ✨ API Endpoints
 
 <sub>(_all requests JSON_)</sub>

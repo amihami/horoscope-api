@@ -8,6 +8,13 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.cbfacademy.horoscopeapi.model.UserProfile;
+import com.cbfacademy.horoscopeapi.model.ZodiacSign;
+import com.cbfacademy.horoscopeapi.repository.UserProfileRepository;
+import com.cbfacademy.horoscopeapi.repository.ZodiacSignRepository;
+import com.cbfacademy.horoscopeapi.service.HoroscopeService;
+import com.cbfacademy.horoscopeapi.service.UserService;
+
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Optional;

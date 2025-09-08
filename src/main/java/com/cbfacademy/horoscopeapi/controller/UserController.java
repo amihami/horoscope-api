@@ -1,9 +1,12 @@
-package com.cbfacademy.horoscopeapi;
+package com.cbfacademy.horoscopeapi.controller;
 
 import com.cbfacademy.horoscopeapi.dto.CalculateSignsRequest;
 import com.cbfacademy.horoscopeapi.dto.CreateUserRequest;
 import com.cbfacademy.horoscopeapi.dto.HoroscopeView;
 import com.cbfacademy.horoscopeapi.dto.UpdateUserRequest;
+import com.cbfacademy.horoscopeapi.model.UserProfile;
+import com.cbfacademy.horoscopeapi.service.HoroscopeService;
+import com.cbfacademy.horoscopeapi.service.UserService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
