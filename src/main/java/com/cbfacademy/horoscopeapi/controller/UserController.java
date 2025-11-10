@@ -135,7 +135,6 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
-
     @Operation(summary = "Daily forecast (by user's sun sign)", description = "Returns a simplified object with sign, period (daily), day (today) and cleaned horoscope text.", tags = "2. Forecasting")
     @ApiResponse(responseCode = "200", description = "Horoscope retrieved", content = @Content(mediaType = "application/json", schema = @Schema(implementation = HoroscopeView.class), examples = @ExampleObject(name = "DailyExample", value = "{\n  \"sign\": \"Aries\",\n  \"period\": \"daily\",\n  \"day\": \"today\",\n  \"text\": \"Momentum builds as you take initiative today...\"\n}")))
     @ApiResponse(responseCode = "404", description = "User not found", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
@@ -145,6 +144,7 @@ public class UserController {
         String sunSign = user.getSunSign().getName();
         String json = horoscopeService.getDailyHoroscope(sunSign);
         HoroscopeView view = toHoroscopeView(json, "daily", "today");
+        view.setSign(capitalizeFirst(sunSign));
         return ResponseEntity.ok(view);
     }
 
@@ -157,6 +157,7 @@ public class UserController {
         String sunSign = user.getSunSign().getName();
         String json = horoscopeService.getWeeklyHoroscope(sunSign);
         HoroscopeView view = toHoroscopeView(json, "weekly", null);
+        view.setSign(capitalizeFirst(sunSign));
         return ResponseEntity.ok(view);
     }
 
@@ -169,9 +170,9 @@ public class UserController {
         String sunSign = user.getSunSign().getName();
         String json = horoscopeService.getMonthlyHoroscope(sunSign);
         HoroscopeView view = toHoroscopeView(json, "monthly", null);
+        view.setSign(capitalizeFirst(sunSign));
         return ResponseEntity.ok(view);
     }
-
 
     @Operation(summary = "Calculate signs", description = "Calculates and stores sun, moon, rising. Strict subject payload.", tags = "3. Calculate Signs")
     @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true, content = @Content(mediaType = "application/json", schema = @Schema(implementation = CalculateSignsRequest.class), examples = @ExampleObject(name = "Strict subject", value = """
@@ -237,7 +238,6 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
-
     @Operation(summary = "Find users by Sun sign", description = "Case-insensitive exact match on stored Sun sign.", tags = "4. Find User By Sign")
     @ApiResponse(responseCode = "200", description = "OK", content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = UserProfile.class)), examples = @ExampleObject(name = "SunSignExample", value = "[{\n  \"id\":\"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"name\":\"Shannon\",\n  \"dateOfBirth\":\"1990-01-01\",\n  \"timeOfBirth\": \"08:30\",\n  \"placeOfBirth\":\"London\",\n  \"latitude\":51.5072,\n  \"longitude\":-0.1276,\n  \"timezone\":\"Europe/London\",\n  \"sunSign\":{\"id\":1,\"name\":\"Aries\",\"element\":\"Fire\",\"modality\":\"Cardinal\",\"rulingPlanet\":\"Mars\",\"traits\":\"Bold, energetic\"},\n  \"risingSign\":\"Libra\",\n  \"moonSign\":\"Cancer\"\n}]")))
     @ApiResponse(responseCode = "400", description = "Missing or invalid 'sign' parameter", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
@@ -274,7 +274,6 @@ public class UserController {
         return userService.findByRisingSign(sign);
     }
 
-
     private String[] requiredMissing(Map<String, ?> fields) {
         List<String> missing = new ArrayList<>();
         fields.forEach((k, v) -> {
@@ -289,22 +288,15 @@ public class UserController {
             Map<String, Object> root = om.readValue(upstreamJson, new TypeReference<Map<String, Object>>() {
             });
             Object dataObj = root.get("data");
-            String sign = null;
-            String text = null;
 
+            String text = null;
             if (dataObj instanceof Map<?, ?> data) {
-                Object s = ((Map<String, Object>) data).get("sign");
-                if (s instanceof String) {
-                    sign = capitalizeFirst((String) s);
-                }
                 Object t = ((Map<String, Object>) data).get("horoscope_data");
-                if (t != null) {
+                if (t != null)
                     text = String.valueOf(t);
-                }
             }
 
             HoroscopeView v = new HoroscopeView();
-            v.setSign(sign != null ? sign : "Unknown");
             v.setPeriod(period);
             v.setDay(day);
             v.setText(text != null ? text : "");
