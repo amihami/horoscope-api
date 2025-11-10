@@ -23,11 +23,23 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import io.swagger.v3.oas.annotations.OpenAPIDefinition;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.*;
+
+
+@OpenAPIDefinition(
+    tags = {
+        @Tag(name = "1. User Management", description = "Create, read, update, delete users"),
+        @Tag(name = "2. Forecasting", description = "Daily, weekly, monthly horoscopes"),
+        @Tag(name = "3. Calculate Signs", description = "Compute sun, moon, rising"),
+        @Tag(name = "4. Find User By Sign", description = "Search users by signs")
+    }
+)
 
 @RestController
 @RequestMapping(value = "/api/users", produces = MediaType.APPLICATION_JSON_VALUE)
